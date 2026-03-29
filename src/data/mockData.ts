@@ -64,12 +64,19 @@ export interface MealStop {
   notes?: string;
 }
 
+export type SlotType = "activity" | "note" | "destination";
+
 export interface ItinerarySlot {
-  activityId: string;
+  id?: string;           // unique ID for drag-and-drop
+  activityId: string;    // references activity DB for type="activity", empty for notes/destinations
   timeSlot: TimeSlot;
   notes?: string;
   startTime?: string;    // e.g. "8:00 AM"
   endTime?: string;      // e.g. "11:30 AM"
+  slotType?: SlotType;   // "activity" (default) | "note" | "destination"
+  customTitle?: string;  // for notes and destinations
+  customDuration?: string; // e.g. "1-2 hours"
+  customLocation?: string; // for destinations
 }
 
 export interface ItineraryDay {

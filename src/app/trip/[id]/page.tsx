@@ -6,12 +6,13 @@ import {
   Ruler, Star, ChevronDown, ChevronUp, Map, Shield, DollarSign, Bed,
   Car, Utensils, Coffee, Sun, Moon, Sunrise, Sandwich, Flame, ShoppingCart, TreePine,
   LogOut, LogIn, Navigation, X, Check, Search, Hotel, Tent, Home, Building,
-  ExternalLink, Loader2,
+  ExternalLink, Loader2, AlertTriangle, StickyNote, Compass, Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useDirections, googleMapsDirectionsUrl } from "@/hooks/useDirections";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import MealEditor from "@/components/MealEditor";
+import AddEventModal from "@/components/AddEventModal";
 import {
   itineraries, getActivityById, getParkById, activityTypeEmoji,
   type Itinerary, type ItineraryDay, type ItinerarySlot, type TravelSegment, type MealStop, type MealStyle,
@@ -397,9 +398,76 @@ function MealCard({ meal, onClick }: { meal: MealStop; onClick?: () => void }) {
   );
 }
 
-function SortableActivityCard({ slot, dayIndex }: { slot: ItinerarySlot; dayIndex: number }) {
-  const activity = getActivityById(slot.activityId);
-  const id = `${dayIndex}-${slot.timeSlot}-${slot.activityId}`;
+// --- Helpers for time budget ---
+function parseDurationToMinutes(duration: string): number {
+  if (!duration) return 60; // default 1 hour
+  const lower = duration.toLowerCase();
+  if (lower.includes("full day")) return 480;
+  if (lower.includes("half day")) return 240;
+  // Match patterns like "3-5 hours", "2 hours", "45 min", "1-2 hours"
+  const hourMatch = lower.match(/(\d+)(?:\s*-\s*(\d+))?\s*h/);
+  const minMatch = lower.match(/(\d+)\s*min/);
+  if (hourMatch) {
+    const high = hourMatch[2] ? parseInt(hourMatch[2]) : parseInt(hourMatch[1]);
+    return high * 60;
+  }
+  if (minMatch) return parseInt(minMatch[1]);
+  return 60;
+}
+
+function getDayTimeBudget(day: ItineraryDay): { totalMinutes: number; availableMinutes: number; overloaded: boolean; overloadMessage: string } {
+  // Calculate available time from depart to arrive
+  let availableMinutes = 12 * 60; // default 12 hours
+  if (day.lodgingDepartTime && day.lodgingArriveTime) {
+    const depart = parseTimeToMinutes(day.lodgingDepartTime);
+    const arrive = parseTimeToMinutes(day.lodgingArriveTime);
+    if (depart !== null && arrive !== null && arrive > depart) {
+      availableMinutes = arrive - depart;
+    }
+  }
+
+  // Sum up estimated durations for all slots
+  let totalMinutes = 0;
+  for (const slot of day.slots) {
+    const slotType = slot.slotType || "activity";
+    if (slotType === "activity") {
+      const activity = getActivityById(slot.activityId);
+      if (activity) totalMinutes += parseDurationToMinutes(activity.duration);
+    } else {
+      totalMinutes += parseDurationToMinutes(slot.customDuration || "1 hour");
+    }
+  }
+
+  // Add travel time estimates (rough: 30 min per segment)
+  totalMinutes += day.travel.length * 30;
+
+  // Add meal time (30 min per meal)
+  totalMinutes += day.meals.length * 30;
+
+  const overloaded = totalMinutes > availableMinutes;
+  const overHours = ((totalMinutes - availableMinutes) / 60).toFixed(1);
+  const overloadMessage = overloaded
+    ? `This day has ~${Math.round(totalMinutes / 60)} hours of activities, meals, and travel — but only ~${Math.round(availableMinutes / 60)} hours between departure and return. You're about ${overHours} hours over. Consider removing an activity or adjusting times.`
+    : "";
+
+  return { totalMinutes, availableMinutes, overloaded, overloadMessage };
+}
+
+function parseTimeToMinutes(time: string): number | null {
+  const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return null;
+  let hours = parseInt(match[1]);
+  const minutes = parseInt(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+function SortableSlotCard({ slot, dayIndex, onRemove }: { slot: ItinerarySlot; dayIndex: number; onRemove?: () => void }) {
+  const slotType = slot.slotType || "activity";
+  const activity = slotType === "activity" ? getActivityById(slot.activityId) : null;
+  const id = slot.id || `${dayIndex}-${slot.timeSlot}-${slot.activityId}`;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -407,9 +475,87 @@ function SortableActivityCard({ slot, dayIndex }: { slot: ItinerarySlot; dayInde
     transition,
   };
 
-  if (!activity) return null;
-
   const timeLabels: Record<string, string> = { morning: "🌅 Morning", afternoon: "☀️ Afternoon", evening: "🌙 Evening" };
+
+  // --- Note card ---
+  if (slotType === "note") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`group flex items-start gap-3 p-4 rounded-xl bg-purple-50 border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all ${isDragging ? "opacity-50 shadow-lg" : ""}`}
+      >
+        <button {...attributes} {...listeners} className="mt-1 cursor-grab active:cursor-grabbing text-purple-300 hover:text-purple-500">
+          <GripVertical className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-purple-400 mb-1">
+            <span>{timeLabels[slot.timeSlot] || slot.timeSlot}</span>
+            {slot.startTime && slot.endTime && (
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{slot.startTime} – {slot.endTime}</span>
+            )}
+            <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 text-[10px] font-medium">NOTE</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <StickyNote className="w-4 h-4 text-purple-500" />
+            <span className="font-semibold text-night">{slot.customTitle}</span>
+          </div>
+          {slot.customDuration && (
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-purple-400">
+              <Clock className="w-3.5 h-3.5" />{slot.customDuration}
+            </div>
+          )}
+          {slot.notes && <p className="mt-1.5 text-xs text-purple-400 italic">{slot.notes}</p>}
+        </div>
+        {onRemove && (
+          <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-purple-100 text-purple-300 hover:text-red-500 transition-all">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Destination card ---
+  if (slotType === "destination") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`group flex items-start gap-3 p-4 rounded-xl bg-sky-50 border border-sky-200 hover:border-sky-300 hover:shadow-md transition-all ${isDragging ? "opacity-50 shadow-lg" : ""}`}
+      >
+        <button {...attributes} {...listeners} className="mt-1 cursor-grab active:cursor-grabbing text-sky-300 hover:text-sky-500">
+          <GripVertical className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-sky-400 mb-1">
+            <span>{timeLabels[slot.timeSlot] || slot.timeSlot}</span>
+            {slot.startTime && slot.endTime && (
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{slot.startTime} – {slot.endTime}</span>
+            )}
+            <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-600 text-[10px] font-medium">DESTINATION</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4 text-sky-500" />
+            <span className="font-semibold text-night">{slot.customTitle}</span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-4 text-xs text-sky-400">
+            {slot.customLocation && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{slot.customLocation}</span>}
+            {slot.customDuration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{slot.customDuration}</span>}
+          </div>
+          {slot.notes && <p className="mt-1.5 text-xs text-sky-400 italic">{slot.notes}</p>}
+        </div>
+        {onRemove && (
+          <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-sky-100 text-sky-300 hover:text-red-500 transition-all">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Activity card (original) ---
+  if (!activity) return null;
 
   return (
     <div
@@ -448,7 +594,7 @@ function SortableActivityCard({ slot, dayIndex }: { slot: ItinerarySlot; dayInde
   );
 }
 
-function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, parkCoords }: {
+function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, onAddSlot, onRemoveSlot, parkCoords }: {
   day: ItineraryDay;
   dayIndex: number;
   onReorder: (dayIndex: number, from: number, to: number) => void;
@@ -456,15 +602,22 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
   onUpdateArriveTime: (dayIndex: number, time: string) => void;
   onChangeLodging: (dayIndex: number, newLodging: string) => void;
   onUpdateMeal: (dayIndex: number, mealIndex: number, updatedMeal: MealStop) => void;
+  onAddSlot: (dayIndex: number, slot: ItinerarySlot) => void;
+  onRemoveSlot: (dayIndex: number, slotIndex: number) => void;
   parkCoords: { lat: number; lng: number };
 }) {
   const [expanded, setExpanded] = useState(true);
   const [showMeals, setShowMeals] = useState(true);
   const [showTravel, setShowTravel] = useState(true);
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
+  const [showAddEvent, setShowAddEvent] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  const items = day.slots.map((s) => `${dayIndex}-${s.timeSlot}-${s.activityId}`);
+  // Generate stable IDs for slots
+  const items = day.slots.map((s, idx) => s.id || `${dayIndex}-${s.timeSlot}-${s.activityId || idx}`);
+
+  // Calculate time budget
+  const timeBudget = getDayTimeBudget(day);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -490,7 +643,7 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
           </div>
           <div className="text-left">
             <h3 className="font-bold text-night">Day {day.day}</h3>
-            <p className="text-xs text-night/50">{day.date} · {day.slots.length} activities</p>
+            <p className="text-xs text-night/50">{day.date} · {day.slots.length} events{timeBudget.overloaded ? " ⚠️" : ""}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -504,6 +657,26 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
       </button>
       {expanded && (
         <>
+          {/* Overload Warning Banner */}
+          {timeBudget.overloaded && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 mb-3 animate-in fade-in">
+              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-700">Day may be overpacked!</p>
+                <p className="text-xs text-red-600 mt-0.5">{timeBudget.overloadMessage}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <div className="w-16 h-2 rounded-full bg-red-200 overflow-hidden">
+                      <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, (timeBudget.availableMinutes / timeBudget.totalMinutes) * 100)}%` }} />
+                    </div>
+                    <span className="text-red-500 font-medium">{Math.round(timeBudget.totalMinutes / 60)}h planned</span>
+                    <span className="text-red-400">/ {Math.round(timeBudget.availableMinutes / 60)}h available</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Editable Lodging Departure Time */}
           <EditableTime
             value={day.lodgingDepartTime}
@@ -532,10 +705,11 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
             <SortableContext items={items} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
                 {day.slots.map((slot, slotIdx) => (
-                  <div key={`${dayIndex}-${slot.timeSlot}-${slot.activityId}`}>
-                    <SortableActivityCard
+                  <div key={slot.id || `${dayIndex}-${slot.timeSlot}-${slot.activityId || slotIdx}`}>
+                    <SortableSlotCard
                       slot={slot}
                       dayIndex={dayIndex}
+                      onRemove={slot.slotType && slot.slotType !== "activity" ? () => onRemoveSlot(dayIndex, slotIdx) : undefined}
                     />
                     {showMeals && slot.timeSlot === "morning" && slotIdx < day.slots.length - 1 && (
                       <>
@@ -579,10 +753,13 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
             </div>
           )}
 
-          {/* Add Activity Button */}
-          <button className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-cream-dark text-night/40 hover:border-forest/30 hover:text-forest transition-all text-sm font-medium">
+          {/* Add Event Button */}
+          <button
+            onClick={() => setShowAddEvent(true)}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-cream-dark text-night/40 hover:border-forest/30 hover:text-forest transition-all text-sm font-medium"
+          >
             <Plus className="w-4 h-4" />
-            Add Activity
+            Add Event
           </button>
 
           {/* Editable Lodging Arrival Time */}
@@ -630,6 +807,17 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
               🚗 {showTravel ? "Hide" : "Show"} Travel
             </button>
           </div>
+
+          {/* Add Event Modal */}
+          {showAddEvent && (
+            <AddEventModal
+              onAdd={(slot) => {
+                onAddSlot(dayIndex, slot);
+                setShowAddEvent(false);
+              }}
+              onClose={() => setShowAddEvent(false)}
+            />
+          )}
 
           {/* Meal Editor Modal */}
           {editingMealIndex !== null && day.meals[editingMealIndex] && (
@@ -698,6 +886,24 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
       const updatedMeals = [...updated[dayIndex].meals];
       updatedMeals[mealIndex] = updatedMeal;
       updated[dayIndex] = { ...updated[dayIndex], meals: updatedMeals };
+      return updated;
+    });
+  };
+
+  const handleAddSlot = (dayIndex: number, slot: ItinerarySlot) => {
+    setDays((prev) => {
+      const updated = [...prev];
+      const updatedSlots = [...updated[dayIndex].slots, slot];
+      updated[dayIndex] = { ...updated[dayIndex], slots: updatedSlots };
+      return updated;
+    });
+  };
+
+  const handleRemoveSlot = (dayIndex: number, slotIndex: number) => {
+    setDays((prev) => {
+      const updated = [...prev];
+      const updatedSlots = updated[dayIndex].slots.filter((_, i) => i !== slotIndex);
+      updated[dayIndex] = { ...updated[dayIndex], slots: updatedSlots };
       return updated;
     });
   };
@@ -802,6 +1008,8 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   onUpdateArriveTime={handleUpdateArriveTime}
                   onChangeLodging={handleChangeLodging}
                   onUpdateMeal={handleUpdateMeal}
+                  onAddSlot={handleAddSlot}
+                  onRemoveSlot={handleRemoveSlot}
                   parkCoords={park?.coordinates || { lat: 37.8651, lng: -119.5383 }}
                 />
               ))}
