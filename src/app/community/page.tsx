@@ -237,7 +237,7 @@ export default function CommunityPage() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {featured.map((trip) => (
-                <div key={trip.id} className="bg-white rounded-2xl overflow-hidden border border-cream-dark hover:shadow-lg transition-all group">
+                <Link key={trip.id} href={`/community/${trip.id}`} className="bg-white rounded-2xl overflow-hidden border border-cream-dark hover:shadow-lg transition-all group block">
                   <div className="relative h-40">
                     <img src={trip.coverImage} alt={trip.title} className="w-full h-full object-cover" />
                     <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-sunset text-white text-[10px] font-bold flex items-center gap-1">
@@ -257,15 +257,12 @@ export default function CommunityPage() {
                     <p className="text-xs text-night/50 mt-2 line-clamp-2">{trip.description}</p>
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                       <span className="text-xs text-night/40">by {trip.author} {trip.authorAvatar}</span>
-                      <Link
-                        href={`/community/${trip.id}`}
-                        className="text-xs text-forest font-medium flex items-center gap-1 hover:underline"
-                      >
-                        Use as template <Copy className="w-3 h-3" />
-                      </Link>
+                      <span className="text-xs text-forest font-medium flex items-center gap-1">
+                        View trip <ChevronRight className="w-3 h-3" />
+                      </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -331,9 +328,9 @@ export default function CommunityPage() {
                   </div>
 
                   {/* Image */}
-                  <div className="sm:w-48 h-32 sm:h-auto flex-shrink-0">
+                  <Link href={`/community/${trip.id}`} className="sm:w-48 h-32 sm:h-auto flex-shrink-0 block">
                     <img src={trip.coverImage} alt={trip.title} className="w-full h-full object-cover" />
-                  </div>
+                  </Link>
 
                   {/* Content */}
                   <div className="flex-1 p-4 sm:p-5">

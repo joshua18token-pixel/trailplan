@@ -353,10 +353,10 @@ export default function MyTripsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(trip.id)}
-                          className="p-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all"
-                          title="Delete trip"
+                          className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all text-xs"
                         >
                           <Trash2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Delete</span>
                         </button>
                         <Link
                           href={`/trip/${trip.slug}`}
