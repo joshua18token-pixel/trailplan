@@ -1,9 +1,14 @@
-import { Search, MapPin, CalendarDays, Compass, ArrowRight, Star } from "lucide-react";
+"use client";
+
+import { MapPin, CalendarDays, Compass, ArrowRight, Star } from "lucide-react";
 import Link from "next/link";
 import ParkCard from "@/components/ParkCard";
+import ParkSearch from "@/components/ParkSearch";
 import { parks, getActivityCountForPark } from "@/data/mockData";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
   return (
     <div className="min-h-screen">
       {/* Hero */}
@@ -32,14 +37,12 @@ export default function HomePage() {
               Discover trails, build itineraries, manage permits — all in one place. Stop juggling 10 tabs and start exploring.
             </p>
 
-            {/* Search Bar */}
+            {/* Search Bar — AI Powered */}
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-night/40" />
-                <input
-                  type="text"
-                  placeholder="Search parks, trails, activities..."
-                  className="w-full pl-12 pr-4 py-4 rounded-xl bg-white/95 backdrop-blur text-night placeholder:text-night/40 focus:outline-none focus:ring-2 focus:ring-sunset shadow-lg text-base"
+              <div className="flex-1">
+                <ParkSearch
+                  placeholder="Search any park, trail, or destination..."
+                  onSelect={(park) => router.push(`/trip/new?park=${park.id}`)}
                 />
               </div>
               <Link

@@ -25,14 +25,18 @@
   --color-gold: #D4A843;
 }
 
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background-color: var(--warm-cream);
   color: var(--night-sky);
-}
-
-html {
-  scroll-behavior: smooth;
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 100vh;
 }
 
 /* Custom scrollbar */
