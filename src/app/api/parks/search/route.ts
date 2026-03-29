@@ -102,10 +102,20 @@ for (const park of seedParks) {
 // Search function
 function searchLocalDB(query: string): ParkEntry[] {
   const q = query.toLowerCase().trim();
+  // Also try matching with hyphens replaced by spaces (for URL-formatted IDs like "highlands-hammock")
+  const qNormalized = q.replace(/-/g, " ");
   const results: ParkEntry[] = [];
 
+  // First check for exact ID match
+  if (parkDatabase.has(q) || parkDatabase.has(qNormalized.replace(/ /g, "-"))) {
+    const match = parkDatabase.get(q) || parkDatabase.get(qNormalized.replace(/ /g, "-"));
+    if (match) return [match];
+  }
+
   for (const park of parkDatabase.values()) {
-    const nameMatch = park.name.toLowerCase().includes(q) || park.fullName.toLowerCase().includes(q);
+    const nameMatch = park.name.toLowerCase().includes(q) || park.fullName.toLowerCase().includes(q)
+      || park.name.toLowerCase().includes(qNormalized) || park.fullName.toLowerCase().includes(qNormalized)
+      || park.id === q || park.id === qNormalized.replace(/ /g, "-");
     const stateMatch = park.state.toLowerCase().includes(q);
     const descMatch = park.description.toLowerCase().includes(q);
     if (nameMatch || stateMatch || descMatch) {
