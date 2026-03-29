@@ -258,7 +258,7 @@ export default function CommunityPage() {
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                       <span className="text-xs text-night/40">by {trip.author} {trip.authorAvatar}</span>
                       <Link
-                        href={`/trip/yosemite-adventure`}
+                        href={`/community/${trip.id}`}
                         className="text-xs text-forest font-medium flex items-center gap-1 hover:underline"
                       >
                         Use as template <Copy className="w-3 h-3" />
@@ -339,9 +339,9 @@ export default function CommunityPage() {
                   <div className="flex-1 p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-bold text-night text-base sm:text-lg hover:text-forest transition-colors cursor-pointer">
+                        <Link href={`/community/${trip.id}`} className="font-bold text-night text-base sm:text-lg hover:text-forest transition-colors">
                           {trip.title}
-                        </h3>
+                        </Link>
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                           {trip.parks.map((p) => (
                             <span key={p.name} className="text-xs text-night/40 flex items-center gap-1">
@@ -383,7 +383,7 @@ export default function CommunityPage() {
                           <ThumbsUp className="w-3.5 h-3.5" /> {trip.votes + (hasVoted ? 1 : 0)}
                         </button>
                         <Link
-                          href={`/trip/yosemite-adventure`}
+                          href={`/community/${trip.id}`}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-forest text-white text-xs font-medium hover:bg-forest-light transition-colors"
                         >
                           <Copy className="w-3.5 h-3.5" /> Use Template

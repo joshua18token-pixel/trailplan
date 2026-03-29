@@ -38,7 +38,7 @@ export default function Navbar() {
               Community
             </Link>
             <Link
-              href="/trip/yosemite-adventure"
+              href="/my-trips"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-night/70 hover:text-forest hover:bg-forest/5 transition-all font-medium"
             >
               <Map className="w-4 h-4" />
@@ -51,9 +51,9 @@ export default function Navbar() {
               <PlusCircle className="w-4 h-4" />
               Create Trip
             </Link>
-            <button className="ml-4 w-9 h-9 rounded-full bg-sunset/10 flex items-center justify-center hover:bg-sunset/20 transition-colors">
+            <Link href="/profile" className="ml-4 w-9 h-9 rounded-full bg-sunset/10 flex items-center justify-center hover:bg-sunset/20 transition-colors">
               <User className="w-5 h-5 text-sunset" />
-            </button>
+            </Link>
           </div>
 
           {/* Mobile toggle */}
@@ -87,7 +87,7 @@ export default function Navbar() {
               Community
             </Link>
             <Link
-              href="/trip/yosemite-adventure"
+              href="/my-trips"
               onClick={() => setMobileOpen(false)}
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all"
             >

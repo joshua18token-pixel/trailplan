@@ -134,7 +134,7 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
                     <span className="text-xs font-bold text-forest">Free</span>
                   </div>
                   <ul className="space-y-1 text-[11px] text-night/60">
-                    <li>✓ Save up to 2 trips</li>
+                    <li>✓ Save up to 5 trips</li>
                     <li>✓ Full itinerary builder</li>
                     <li>✓ Restaurant finder</li>
                     <li>✓ Share with friends</li>
