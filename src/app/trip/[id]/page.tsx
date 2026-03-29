@@ -15,6 +15,7 @@ import MealEditor from "@/components/MealEditor";
 import AddEventModal from "@/components/AddEventModal";
 import ActivitySwapModal from "@/components/ActivitySwapModal";
 import dynamic from "next/dynamic";
+import { SaveTripBanner, AuthModal, AffiliateAdBanner } from "@/components/SaveTripBanner";
 
 const ItineraryMap = dynamic(() => import("@/components/ItineraryMap"), { ssr: false });
 import {
@@ -913,6 +914,10 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   const park = getParkById(itinerary.parkId);
   const [activeTab, setActiveTab] = useState(0);
 
+  const [showSaveBanner, setShowSaveBanner] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
+
   // Multiple itinerary options
   const [options, setOptions] = useState<ItineraryOption[]>([
     { name: "Option A", days: itinerary.days },
@@ -1044,29 +1049,29 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
     <div className="min-h-screen bg-cream">
       {/* Header */}
       <div className="bg-white border-b border-cream-dark">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm text-night/50 mb-1">
                 <MapPin className="w-4 h-4" />
                 {park?.name || "National Park"}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-night">{itinerary.name}</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-night">{itinerary.name}</h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href={`/trip/${id}/permits`}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sunset/10 text-sunset hover:bg-sunset/20 transition-colors font-medium text-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-sunset/10 text-sunset hover:bg-sunset/20 transition-colors font-medium text-xs sm:text-sm"
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Permits
               </Link>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cream text-night/60 hover:bg-cream-dark transition-colors text-sm font-medium">
-                <Edit3 className="w-4 h-4" />
+              <button className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-cream text-night/60 hover:bg-cream-dark transition-colors text-xs sm:text-sm font-medium">
+                <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Edit
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-forest text-white hover:bg-forest-light transition-colors text-sm font-medium">
-                <Share2 className="w-4 h-4" />
+              <button className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-forest text-white hover:bg-forest-light transition-colors text-xs sm:text-sm font-medium">
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Share
               </button>
             </div>
@@ -1074,12 +1079,12 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Map + Itinerary */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Interactive Map */}
-            <div className="relative h-64 sm:h-80 rounded-2xl overflow-hidden border border-cream-dark">
+            <div className="relative h-48 sm:h-72 lg:h-80 rounded-xl sm:rounded-2xl overflow-hidden border border-cream-dark">
               <ItineraryMap days={days} />
             </div>
 
@@ -1115,6 +1120,14 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
             </div>
 
             {/* Days */}
+            {/* Save Trip Banner (non-logged-in users) */}
+            {showSaveBanner && (
+              <SaveTripBanner
+                onSignUp={() => { setAuthMode("signup"); setShowAuthModal(true); }}
+                onDismiss={() => setShowSaveBanner(false)}
+              />
+            )}
+
             <div className="space-y-4">
               {days.map((day, i) => (
                 <DayCard
@@ -1279,9 +1292,20 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                 ))}
               </div>
             </div>
+
+            {/* Affiliate Ad */}
+            <AffiliateAdBanner />
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          mode={authMode}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
 }

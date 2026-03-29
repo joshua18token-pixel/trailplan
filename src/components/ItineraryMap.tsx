@@ -185,11 +185,33 @@ export default function ItineraryMap({ days }: ItineraryMapProps) {
         });
       }
 
-      // Fit bounds to show all points
-      if (points.length > 0) {
-        const allCoords = points.map((p) => [p.lat, p.lng] as [number, number]);
-        const bounds = L.latLngBounds(allCoords);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+      // Fit bounds to show activity points only (not distant travel endpoints)
+      // Filter out points that are too far from the median (e.g., "Home" / "San Francisco")
+      const activityCoords = points
+        .filter((p) => p.type !== "travel")
+        .map((p) => [p.lat, p.lng] as [number, number]);
+      
+      // Fall back to all points if no activity-only points
+      let boundsCoords = activityCoords.length > 0 ? activityCoords : points.map((p) => [p.lat, p.lng] as [number, number]);
+      
+      // If we have travel points too, only include those within ~50 miles of the activity centroid
+      if (activityCoords.length > 0 && points.some((p) => p.type === "travel")) {
+        const avgLat = activityCoords.reduce((s, c) => s + c[0], 0) / activityCoords.length;
+        const avgLng = activityCoords.reduce((s, c) => s + c[1], 0) / activityCoords.length;
+        const travelNearby = points
+          .filter((p) => p.type === "travel")
+          .filter((p) => {
+            const dLat = Math.abs(p.lat - avgLat);
+            const dLng = Math.abs(p.lng - avgLng);
+            return dLat < 0.5 && dLng < 0.5; // ~30 miles radius
+          })
+          .map((p) => [p.lat, p.lng] as [number, number]);
+        boundsCoords = [...activityCoords, ...travelNearby];
+      }
+      
+      if (boundsCoords.length > 0) {
+        const bounds = L.latLngBounds(boundsCoords);
+        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
     });
 
