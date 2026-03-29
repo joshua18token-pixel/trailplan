@@ -141,10 +141,41 @@ function TripWizardContent() {
     return true;
   };
 
-  const handleBuild = () => {
-    // For now, route to the demo itinerary
-    // In production, this would create a real trip with the selected parks
-    router.push("/trip/yosemite-adventure");
+  const [building, setBuilding] = useState(false);
+
+  const handleBuild = async () => {
+    if (!mainPark) return;
+    setBuilding(true);
+    try {
+      const res = await fetch("/api/trips/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parks: allTripParks,
+          startDate: "2025-07-14", // TODO: use actual date inputs
+          endDate: "2025-07-18",
+          adults,
+          kids,
+          pets,
+          activities: selectedActivities,
+          fitness,
+          lodging,
+          pace,
+          budget,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.slug) {
+        router.push(`/trip/${data.slug}`);
+      } else {
+        // Fallback to demo
+        router.push("/trip/yosemite-adventure");
+      }
+    } catch {
+      router.push("/trip/yosemite-adventure");
+    } finally {
+      setBuilding(false);
+    }
   };
 
   const allTripParks = mainPark ? [mainPark, ...additionalParks] : [];
@@ -596,10 +627,20 @@ function TripWizardContent() {
           ) : (
             <button
               onClick={handleBuild}
-              className="flex items-center gap-2 px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-sunset to-sunset-light text-white font-bold hover:shadow-xl transition-all shadow-md"
+              disabled={building}
+              className="flex items-center gap-2 px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-sunset to-sunset-light text-white font-bold hover:shadow-xl transition-all shadow-md disabled:opacity-70"
             >
-              <Sparkles className="w-5 h-5" />
-              Build My Trip
+              {building ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Building your trip...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Build My Trip
+                </>
+              )}
             </button>
           )}
         </div>

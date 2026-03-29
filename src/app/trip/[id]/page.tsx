@@ -559,8 +559,12 @@ function SortableSlotCard({ slot, dayIndex, onRemove, onEdit }: { slot: Itinerar
     );
   }
 
-  // --- Activity card (original) ---
-  if (!activity) return null;
+  // --- Activity card (original or generated) ---
+  // For generated trips, activity may be null — use slot metadata instead
+  const displayName = activity?.name || slot.customTitle || slot.notes || "Activity";
+  const displayType = activity?.type || (slot.customDescription?.split(" · ").pop()) || "sightseeing";
+  const displayDifficulty = activity?.difficulty || slot.customDescription?.split(" · ")[0] || "";
+  const displayEmoji = (activityTypeEmoji as Record<string, string>)[displayType] || "🏞️";
 
   return (
     <div
@@ -583,18 +587,22 @@ function SortableSlotCard({ slot, dayIndex, onRemove, onEdit }: { slot: Itinerar
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{activityTypeEmoji[activity.type]}</span>
+          <span className="text-lg">{displayEmoji}</span>
           <span className="font-semibold text-night group-hover:text-forest transition-colors truncate">
-            {activity.name}
+            {displayName}
           </span>
-          <DifficultyBadge difficulty={activity.difficulty} />
+          {displayDifficulty && <DifficultyBadge difficulty={displayDifficulty as any} />}
         </div>
-        <div className="mt-2 flex items-center gap-4 text-xs text-night/50">
-          <span className="flex items-center gap-1"><Ruler className="w-3.5 h-3.5" />{activity.distance} mi</span>
-          <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" />{activity.elevationGain.toLocaleString()} ft</span>
-          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{activity.duration}</span>
-        </div>
-        {slot.notes && <p className="mt-1.5 text-xs text-night/40 italic">{slot.notes}</p>}
+        {activity ? (
+          <div className="mt-2 flex items-center gap-4 text-xs text-night/50">
+            <span className="flex items-center gap-1"><Ruler className="w-3.5 h-3.5" />{activity.distance} mi</span>
+            <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" />{activity.elevationGain.toLocaleString()} ft</span>
+            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{activity.duration}</span>
+          </div>
+        ) : slot.customDescription ? (
+          <div className="mt-2 text-xs text-night/50">{slot.customDescription}</div>
+        ) : null}
+        {slot.notes && !slot.customTitle && <p className="mt-1.5 text-xs text-night/40 italic">{slot.notes}</p>}
       </div>
       <Edit3 className="w-4 h-4 text-night/20 group-hover:text-forest/50 transition-colors mt-1 flex-shrink-0" />
     </div>
@@ -910,8 +918,58 @@ interface ItineraryOption {
 
 export default function ItineraryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const itinerary = itineraries.find((i) => i.id === id) || itineraries[0];
-  const park = getParkById(itinerary.parkId);
+  const mockItinerary = itineraries.find((i) => i.id === id);
+  const [generatedTrip, setGeneratedTrip] = useState<any>(null);
+  const [loadingTrip, setLoadingTrip] = useState(!mockItinerary);
+
+  // Fetch generated trip if not a mock
+  useEffect(() => {
+    if (!mockItinerary) {
+      fetch(`/api/trips/generate?id=${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.error) setGeneratedTrip(data);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingTrip(false));
+    }
+  }, [id, mockItinerary]);
+
+  // Use mock or generated
+  const isGenerated = !mockItinerary && generatedTrip;
+  const itinerary = mockItinerary || {
+    id: generatedTrip?.id || id,
+    name: generatedTrip?.name || "Your Trip",
+    parkId: generatedTrip?.mainParkId || "",
+    days: generatedTrip?.days?.map((d: any, i: number) => ({
+      ...d,
+      label: d.label || `Day ${i + 1}`,
+      slots: d.slots?.map((s: any) => ({
+        activityId: s.activityId,
+        startTime: s.startTime || "",
+        endTime: s.endTime || "",
+        notes: s.notes || "",
+        type: s.type || "activity",
+        customTitle: s.customTitle,
+        customDescription: s.customDescription,
+        customType: s.customType,
+      })) || [],
+      meals: d.meals || [],
+      travel: d.travel || [],
+      lodging: d.lodging || { name: "Lodging", type: "lodge", departureTime: "7:00 AM", arrivalTime: "9:00 PM" },
+    })) || [],
+  };
+
+  const park = getParkById(itinerary.parkId) || (generatedTrip?.parks?.[0] ? {
+    id: generatedTrip.parks[0].id,
+    name: generatedTrip.parks[0].fullName,
+    region: generatedTrip.parks[0].state,
+    bestSeason: generatedTrip.parks[0].bestSeason,
+    description: generatedTrip.parks[0].description,
+    heroImage: generatedTrip.parks[0].image || "",
+    coordinates: generatedTrip.parks[0].coordinates,
+  } : null);
+
   const [activeTab, setActiveTab] = useState(0);
 
   const [showSaveBanner, setShowSaveBanner] = useState(true);
@@ -919,10 +977,38 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
 
   // Multiple itinerary options
-  const [options, setOptions] = useState<ItineraryOption[]>([
-    { name: "Option A", days: itinerary.days },
-    { name: "Option B — Relaxed", days: generateOptionB(itinerary.days) },
+  const [options, setOptions] = useState<ItineraryOption[]>(() => [
+    { name: "Option A", days: mockItinerary ? mockItinerary.days : [] },
+    ...(mockItinerary ? [{ name: "Option B — Relaxed", days: generateOptionB(mockItinerary.days) }] : []),
   ]);
+
+  // Update options when generated trip loads
+  useEffect(() => {
+    if (generatedTrip && !mockItinerary) {
+      const mappedDays = generatedTrip.days?.map((d: any, i: number) => ({
+        day: i + 1,
+        date: d.date || `2025-07-${14 + i}`,
+        label: d.label || `Day ${i + 1}`,
+        slots: d.slots?.map((s: any, si: number) => ({
+          id: `gen-slot-${i}-${si}`,
+          activityId: s.activityId || "",
+          timeSlot: si === 0 ? "morning" : si === 1 ? "afternoon" : "evening",
+          startTime: s.startTime || "",
+          endTime: s.endTime || "",
+          notes: s.notes || "",
+          slotType: s.type === "activity" ? undefined : s.type,
+          customTitle: s.customTitle,
+          customDescription: s.customDescription,
+        })) || [],
+        meals: d.meals || [],
+        travel: d.travel || [],
+        lodging: d.lodging?.name,
+        lodgingDepartTime: d.lodging?.departureTime || "7:00 AM",
+        lodgingArriveTime: d.lodging?.arrivalTime || "9:00 PM",
+      })) || [];
+      setOptions([{ name: "Option A", days: mappedDays }]);
+    }
+  }, [generatedTrip, mockItinerary]);
 
   // Current option's days
   const days = options[activeTab]?.days || [];
@@ -938,10 +1024,10 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddOption = () => {
-    const baseDates = itinerary.days.map((d) => d.date);
+    const baseDates = itinerary.days.map((d: any) => d.date);
     const newOption: ItineraryOption = {
       name: `Option ${String.fromCharCode(65 + options.length)}`,
-      days: baseDates.map((date, i) => createBlankDay(i + 1, date)),
+      days: baseDates.map((date: string, i: number) => createBlankDay(i + 1, date)),
     };
     setOptions((prev) => [...prev, newOption]);
     setActiveTab(options.length);
@@ -1025,6 +1111,21 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
       return updated;
     });
   };
+
+  // Loading state for generated trips
+  if (loadingTrip) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-2xl bg-forest/10 flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <MapPin className="w-8 h-8 text-forest" />
+          </div>
+          <h2 className="text-xl font-bold text-night mb-2">Building your trip...</h2>
+          <p className="text-sm text-night/50">Generating the perfect itinerary</p>
+        </div>
+      </div>
+    );
+  }
 
   // Summary stats
   const totalActivities = days.reduce((sum, d) => sum + d.slots.length, 0);
@@ -1131,7 +1232,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
             <div className="space-y-4">
               {days.map((day, i) => (
                 <DayCard
-                  key={day.day}
+                  key={day.day || day.date || i}
                   day={day}
                   dayIndex={i}
                   parkId={itinerary.parkId}

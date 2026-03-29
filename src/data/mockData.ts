@@ -75,6 +75,7 @@ export interface ItinerarySlot {
   endTime?: string;      // e.g. "11:30 AM"
   slotType?: SlotType;   // "activity" (default) | "note" | "destination"
   customTitle?: string;  // for notes and destinations
+  customDescription?: string; // for generated activities
   customDuration?: string; // e.g. "1-2 hours"
   customLocation?: string; // for destinations
 }

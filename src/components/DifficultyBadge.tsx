@@ -7,8 +7,9 @@ const config: Record<Difficulty, { bg: string; text: string; label: string }> = 
   expert: { bg: "bg-red-100", text: "text-red-800", label: "Expert" },
 };
 
-export default function DifficultyBadge({ difficulty, size = "sm" }: { difficulty: Difficulty; size?: "sm" | "md" }) {
-  const c = config[difficulty];
+export default function DifficultyBadge({ difficulty, size = "sm" }: { difficulty: Difficulty | string; size?: "sm" | "md" }) {
+  const key = (typeof difficulty === "string" ? difficulty.toLowerCase() : difficulty) as Difficulty;
+  const c = config[key] || config.moderate;
   const sizeClasses = size === "md" ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs";
   return (
     <span className={`inline-flex items-center rounded-full font-semibold ${c.bg} ${c.text} ${sizeClasses}`}>
