@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { useDirections, googleMapsDirectionsUrl } from "@/hooks/useDirections";
 import DifficultyBadge from "@/components/DifficultyBadge";
+import MealEditor from "@/components/MealEditor";
 import {
   itineraries, getActivityById, getParkById, activityTypeEmoji,
   type Itinerary, type ItineraryDay, type ItinerarySlot, type TravelSegment, type MealStop, type MealStyle,
@@ -367,10 +368,13 @@ function TravelCard({ segment }: { segment: TravelSegment }) {
   );
 }
 
-function MealCard({ meal }: { meal: MealStop }) {
+function MealCard({ meal, onClick }: { meal: MealStop; onClick?: () => void }) {
   const isPacked = meal.style === "packed" || meal.style === "picnic";
   return (
-    <div className={`flex items-start gap-3 px-4 py-2.5 rounded-xl border ${isPacked ? "bg-green-50 border-green-100" : "bg-orange-50 border-orange-100"}`}>
+    <button
+      onClick={onClick}
+      className={`w-full text-left flex items-start gap-3 px-4 py-2.5 rounded-xl border group cursor-pointer hover:shadow-md hover:ring-2 hover:ring-offset-1 transition-all ${isPacked ? "bg-green-50 border-green-100 hover:ring-green-300" : "bg-orange-50 border-orange-100 hover:ring-orange-300"}`}
+    >
       <span className="text-base mt-0.5">{mealTypeEmoji[meal.type]}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -388,7 +392,8 @@ function MealCard({ meal }: { meal: MealStop }) {
         </div>
         {meal.notes && <p className="text-xs text-night/40 italic mt-0.5">{meal.notes}</p>}
       </div>
-    </div>
+      <Edit3 className="w-3.5 h-3.5 text-night/20 group-hover:text-night/50 transition-colors mt-1 flex-shrink-0" />
+    </button>
   );
 }
 
@@ -443,17 +448,20 @@ function SortableActivityCard({ slot, dayIndex }: { slot: ItinerarySlot; dayInde
   );
 }
 
-function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging }: {
+function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, parkCoords }: {
   day: ItineraryDay;
   dayIndex: number;
   onReorder: (dayIndex: number, from: number, to: number) => void;
   onUpdateDepartTime: (dayIndex: number, time: string) => void;
   onUpdateArriveTime: (dayIndex: number, time: string) => void;
   onChangeLodging: (dayIndex: number, newLodging: string) => void;
+  onUpdateMeal: (dayIndex: number, mealIndex: number, updatedMeal: MealStop) => void;
+  parkCoords: { lat: number; lng: number };
 }) {
   const [expanded, setExpanded] = useState(true);
   const [showMeals, setShowMeals] = useState(true);
   const [showTravel, setShowTravel] = useState(true);
+  const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const items = day.slots.map((s) => `${dayIndex}-${s.timeSlot}-${s.activityId}`);
@@ -506,11 +514,11 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
           />
 
           {/* Morning Meal */}
-          {showMeals && day.meals.filter((m) => m.type === "breakfast").map((meal, i) => (
-            <div key={`breakfast-${i}`} className="mb-2">
-              <MealCard meal={meal} />
+          {showMeals && day.meals.map((meal, idx) => meal.type === "breakfast" ? (
+            <div key={`breakfast-${idx}`} className="mb-2">
+              <MealCard meal={meal} onClick={() => setEditingMealIndex(idx)} />
             </div>
-          ))}
+          ) : null)}
 
           {/* Morning Travel */}
           {showTravel && day.travel.length > 0 && (
@@ -531,11 +539,11 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
                     />
                     {showMeals && slot.timeSlot === "morning" && slotIdx < day.slots.length - 1 && (
                       <>
-                        {day.meals.filter((m) => m.type === "lunch").map((meal, i) => (
-                          <div key={`lunch-${i}`} className="mt-2">
-                            <MealCard meal={meal} />
+                        {day.meals.map((meal, idx) => meal.type === "lunch" ? (
+                          <div key={`lunch-${idx}`} className="mt-2">
+                            <MealCard meal={meal} onClick={() => setEditingMealIndex(idx)} />
                           </div>
-                        ))}
+                        ) : null)}
                         {showTravel && day.travel.length > 1 && (
                           <div className="mt-2">
                             <TravelCard segment={day.travel[1]} />
@@ -552,15 +560,15 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
           {/* Remaining meals */}
           {showMeals && (
             <div className="mt-2 space-y-2">
-              {day.slots.length <= 1 && day.meals.filter((m) => m.type === "lunch").map((meal, i) => (
-                <MealCard key={`lunch-solo-${i}`} meal={meal} />
-              ))}
-              {day.meals.filter((m) => m.type === "snack").map((meal, i) => (
-                <MealCard key={`snack-${i}`} meal={meal} />
-              ))}
-              {day.meals.filter((m) => m.type === "dinner").map((meal, i) => (
-                <MealCard key={`dinner-${i}`} meal={meal} />
-              ))}
+              {day.slots.length <= 1 && day.meals.map((meal, idx) => meal.type === "lunch" ? (
+                <MealCard key={`lunch-solo-${idx}`} meal={meal} onClick={() => setEditingMealIndex(idx)} />
+              ) : null)}
+              {day.meals.map((meal, idx) => meal.type === "snack" ? (
+                <MealCard key={`snack-${idx}`} meal={meal} onClick={() => setEditingMealIndex(idx)} />
+              ) : null)}
+              {day.meals.map((meal, idx) => meal.type === "dinner" ? (
+                <MealCard key={`dinner-${idx}`} meal={meal} onClick={() => setEditingMealIndex(idx)} />
+              ) : null)}
             </div>
           )}
 
@@ -622,6 +630,20 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
               🚗 {showTravel ? "Hide" : "Show"} Travel
             </button>
           </div>
+
+          {/* Meal Editor Modal */}
+          {editingMealIndex !== null && day.meals[editingMealIndex] && (
+            <MealEditor
+              meal={day.meals[editingMealIndex]}
+              nearLat={parkCoords.lat}
+              nearLng={parkCoords.lng}
+              onSave={(updatedMeal) => {
+                onUpdateMeal(dayIndex, editingMealIndex, updatedMeal);
+                setEditingMealIndex(null);
+              }}
+              onClose={() => setEditingMealIndex(null)}
+            />
+          )}
         </>
       )}
     </div>
@@ -666,6 +688,16 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
     setDays((prev) => {
       const updated = [...prev];
       updated[dayIndex] = { ...updated[dayIndex], lodging: newLodging };
+      return updated;
+    });
+  };
+
+  const handleUpdateMeal = (dayIndex: number, mealIndex: number, updatedMeal: MealStop) => {
+    setDays((prev) => {
+      const updated = [...prev];
+      const updatedMeals = [...updated[dayIndex].meals];
+      updatedMeals[mealIndex] = updatedMeal;
+      updated[dayIndex] = { ...updated[dayIndex], meals: updatedMeals };
       return updated;
     });
   };
@@ -769,6 +801,8 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   onUpdateDepartTime={handleUpdateDepartTime}
                   onUpdateArriveTime={handleUpdateArriveTime}
                   onChangeLodging={handleChangeLodging}
+                  onUpdateMeal={handleUpdateMeal}
+                  parkCoords={park?.coordinates || { lat: 37.8651, lng: -119.5383 }}
                 />
               ))}
             </div>
