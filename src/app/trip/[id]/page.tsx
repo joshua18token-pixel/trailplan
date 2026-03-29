@@ -13,6 +13,7 @@ import { useDirections, googleMapsDirectionsUrl } from "@/hooks/useDirections";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import MealEditor from "@/components/MealEditor";
 import AddEventModal from "@/components/AddEventModal";
+import ActivitySwapModal from "@/components/ActivitySwapModal";
 import {
   itineraries, getActivityById, getParkById, activityTypeEmoji,
   type Itinerary, type ItineraryDay, type ItinerarySlot, type TravelSegment, type MealStop, type MealStyle,
@@ -464,7 +465,7 @@ function parseTimeToMinutes(time: string): number | null {
   return hours * 60 + minutes;
 }
 
-function SortableSlotCard({ slot, dayIndex, onRemove }: { slot: ItinerarySlot; dayIndex: number; onRemove?: () => void }) {
+function SortableSlotCard({ slot, dayIndex, onRemove, onEdit }: { slot: ItinerarySlot; dayIndex: number; onRemove?: () => void; onEdit?: () => void }) {
   const slotType = slot.slotType || "activity";
   const activity = slotType === "activity" ? getActivityById(slot.activityId) : null;
   const id = slot.id || `${dayIndex}-${slot.timeSlot}-${slot.activityId}`;
@@ -561,9 +562,10 @@ function SortableSlotCard({ slot, dayIndex, onRemove }: { slot: ItinerarySlot; d
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-start gap-3 p-4 rounded-xl bg-white border border-cream-dark hover:border-forest/30 hover:shadow-md transition-all ${isDragging ? "opacity-50 shadow-lg" : ""}`}
+      className={`group flex items-start gap-3 p-4 rounded-xl bg-white border border-cream-dark hover:border-forest/30 hover:shadow-md transition-all cursor-pointer ${isDragging ? "opacity-50 shadow-lg" : ""}`}
+      onClick={onEdit}
     >
-      <button {...attributes} {...listeners} className="mt-1 cursor-grab active:cursor-grabbing text-night/30 hover:text-night/60">
+      <button {...attributes} {...listeners} className="mt-1 cursor-grab active:cursor-grabbing text-night/30 hover:text-night/60" onClick={(e) => e.stopPropagation()}>
         <GripVertical className="w-5 h-5" />
       </button>
       <div className="flex-1 min-w-0">
@@ -578,9 +580,9 @@ function SortableSlotCard({ slot, dayIndex, onRemove }: { slot: ItinerarySlot; d
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg">{activityTypeEmoji[activity.type]}</span>
-          <Link href={`/explore/${activity.id}`} className="font-semibold text-night hover:text-forest transition-colors truncate">
+          <span className="font-semibold text-night group-hover:text-forest transition-colors truncate">
             {activity.name}
-          </Link>
+          </span>
           <DifficultyBadge difficulty={activity.difficulty} />
         </div>
         <div className="mt-2 flex items-center gap-4 text-xs text-night/50">
@@ -590,13 +592,15 @@ function SortableSlotCard({ slot, dayIndex, onRemove }: { slot: ItinerarySlot; d
         </div>
         {slot.notes && <p className="mt-1.5 text-xs text-night/40 italic">{slot.notes}</p>}
       </div>
+      <Edit3 className="w-4 h-4 text-night/20 group-hover:text-forest/50 transition-colors mt-1 flex-shrink-0" />
     </div>
   );
 }
 
-function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, onAddSlot, onRemoveSlot, parkCoords }: {
+function DayCard({ day, dayIndex, parkId, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, onAddSlot, onRemoveSlot, onSwapSlot, parkCoords }: {
   day: ItineraryDay;
   dayIndex: number;
+  parkId: string;
   onReorder: (dayIndex: number, from: number, to: number) => void;
   onUpdateDepartTime: (dayIndex: number, time: string) => void;
   onUpdateArriveTime: (dayIndex: number, time: string) => void;
@@ -604,12 +608,14 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
   onUpdateMeal: (dayIndex: number, mealIndex: number, updatedMeal: MealStop) => void;
   onAddSlot: (dayIndex: number, slot: ItinerarySlot) => void;
   onRemoveSlot: (dayIndex: number, slotIndex: number) => void;
+  onSwapSlot: (dayIndex: number, slotIndex: number, updatedSlot: ItinerarySlot) => void;
   parkCoords: { lat: number; lng: number };
 }) {
   const [expanded, setExpanded] = useState(true);
   const [showMeals, setShowMeals] = useState(true);
   const [showTravel, setShowTravel] = useState(true);
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
+  const [editingSlotIndex, setEditingSlotIndex] = useState<number | null>(null);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -710,6 +716,7 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
                       slot={slot}
                       dayIndex={dayIndex}
                       onRemove={slot.slotType && slot.slotType !== "activity" ? () => onRemoveSlot(dayIndex, slotIdx) : undefined}
+                      onEdit={(slot.slotType || "activity") === "activity" ? () => setEditingSlotIndex(slotIdx) : undefined}
                     />
                     {showMeals && slot.timeSlot === "morning" && slotIdx < day.slots.length - 1 && (
                       <>
@@ -807,6 +814,20 @@ function DayCard({ day, dayIndex, onReorder, onUpdateDepartTime, onUpdateArriveT
               🚗 {showTravel ? "Hide" : "Show"} Travel
             </button>
           </div>
+
+          {/* Activity Swap Modal */}
+          {editingSlotIndex !== null && day.slots[editingSlotIndex] && (
+            <ActivitySwapModal
+              currentSlot={day.slots[editingSlotIndex]}
+              currentActivity={getActivityById(day.slots[editingSlotIndex].activityId) || null}
+              parkId={parkId}
+              onSwap={(updatedSlot) => {
+                onSwapSlot(dayIndex, editingSlotIndex, updatedSlot);
+                setEditingSlotIndex(null);
+              }}
+              onClose={() => setEditingSlotIndex(null)}
+            />
+          )}
 
           {/* Add Event Modal */}
           {showAddEvent && (
@@ -908,6 +929,16 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
     });
   };
 
+  const handleSwapSlot = (dayIndex: number, slotIndex: number, updatedSlot: ItinerarySlot) => {
+    setDays((prev) => {
+      const updated = [...prev];
+      const updatedSlots = [...updated[dayIndex].slots];
+      updatedSlots[slotIndex] = updatedSlot;
+      updated[dayIndex] = { ...updated[dayIndex], slots: updatedSlots };
+      return updated;
+    });
+  };
+
   // Summary stats
   const totalActivities = days.reduce((sum, d) => sum + d.slots.length, 0);
   const totalMiles = days.reduce((sum, d) => {
@@ -1003,6 +1034,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   key={day.day}
                   day={day}
                   dayIndex={i}
+                  parkId={itinerary.parkId}
                   onReorder={handleReorder}
                   onUpdateDepartTime={handleUpdateDepartTime}
                   onUpdateArriveTime={handleUpdateArriveTime}
@@ -1010,6 +1042,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   onUpdateMeal={handleUpdateMeal}
                   onAddSlot={handleAddSlot}
                   onRemoveSlot={handleRemoveSlot}
+                  onSwapSlot={handleSwapSlot}
                   parkCoords={park?.coordinates || { lat: 37.8651, lng: -119.5383 }}
                 />
               ))}
