@@ -47,8 +47,10 @@ export type MealStyle = "restaurant" | "packed" | "campfire" | "grocery" | "picn
 export interface TravelSegment {
   from: string;          // location name
   to: string;            // location name
-  driveTime: string;     // e.g. "45 min"
-  distance: string;      // e.g. "32 miles"
+  fromCoords?: { lat: number; lng: number };
+  toCoords?: { lat: number; lng: number };
+  driveTime: string;     // e.g. "45 min" — default/fallback
+  distance: string;      // e.g. "32 miles" — default/fallback
   notes?: string;        // e.g. "Scenic route via Tioga Road"
 }
 
@@ -718,9 +720,9 @@ export const itineraries: Itinerary[] = [
           { type: "dinner", style: "restaurant", name: "Curry Village Pizza Patio", location: "Half Dome Village", time: "6:00 PM", cost: "$15-25/person" },
         ],
         travel: [
-          { from: "Curry Village", to: "Yosemite Valley Bike Rentals", driveTime: "5 min", distance: "1.2 miles", notes: "Walk or take shuttle" },
-          { from: "Yosemite Valley", to: "Tuolumne Meadows", driveTime: "1 hr 15 min", distance: "55 miles", notes: "Scenic drive via Tioga Road (Hwy 120)" },
-          { from: "Tuolumne Meadows", to: "Curry Village", driveTime: "1 hr 15 min", distance: "55 miles" },
+          { from: "Curry Village", to: "Yosemite Valley Bike Rentals", fromCoords: { lat: 37.7387, lng: -119.5711 }, toCoords: { lat: 37.7455, lng: -119.5936 }, driveTime: "5 min", distance: "1.2 miles", notes: "Walk or take shuttle" },
+          { from: "Yosemite Valley", to: "Tuolumne Meadows", fromCoords: { lat: 37.7455, lng: -119.5936 }, toCoords: { lat: 37.8735, lng: -119.3594 }, driveTime: "1 hr 15 min", distance: "55 miles", notes: "Scenic drive via Tioga Road (Hwy 120)" },
+          { from: "Tuolumne Meadows", to: "Curry Village", fromCoords: { lat: 37.8735, lng: -119.3594 }, toCoords: { lat: 37.7387, lng: -119.5711 }, driveTime: "1 hr 15 min", distance: "55 miles" },
         ],
         lodging: "Curry Village — Half Dome Village Tent Cabin",
       },
@@ -739,8 +741,8 @@ export const itineraries: Itinerary[] = [
           { type: "dinner", style: "campfire", name: "Camp cookout — burgers & corn", time: "6:30 PM", cost: "$8-12/person", notes: "Grab supplies at Village Store" },
         ],
         travel: [
-          { from: "Curry Village", to: "Happy Isles Trailhead", driveTime: "10 min", distance: "0.8 miles", notes: "Walk or shuttle — no parking at trailhead" },
-          { from: "Happy Isles", to: "Merced River fishing spot", driveTime: "15 min", distance: "2 miles", notes: "Easy walk along the river" },
+          { from: "Curry Village", to: "Happy Isles Trailhead", fromCoords: { lat: 37.7387, lng: -119.5711 }, toCoords: { lat: 37.7274, lng: -119.5579 }, driveTime: "10 min", distance: "0.8 miles", notes: "Walk or shuttle — no parking at trailhead" },
+          { from: "Happy Isles", to: "Merced River fishing spot", fromCoords: { lat: 37.7274, lng: -119.5579 }, toCoords: { lat: 37.7369, lng: -119.5655 }, driveTime: "15 min", distance: "2 miles", notes: "Easy walk along the river" },
         ],
         lodging: "Curry Village — Half Dome Village Tent Cabin",
       },
@@ -759,7 +761,7 @@ export const itineraries: Itinerary[] = [
           { type: "dinner", style: "restaurant", name: "The Ahwahnee Bar", location: "The Ahwahnee Hotel", time: "7:30 PM", cost: "$25-40/person", notes: "Celebrate the summit! You earned it." },
         ],
         travel: [
-          { from: "Curry Village", to: "Happy Isles Trailhead", driveTime: "10 min", distance: "0.8 miles", notes: "Headlamp for pre-dawn walk" },
+          { from: "Curry Village", to: "Happy Isles Trailhead", fromCoords: { lat: 37.7387, lng: -119.5711 }, toCoords: { lat: 37.7274, lng: -119.5579 }, driveTime: "10 min", distance: "0.8 miles", notes: "Headlamp for pre-dawn walk" },
         ],
         lodging: "Curry Village — Half Dome Village Tent Cabin",
       },
@@ -778,9 +780,9 @@ export const itineraries: Itinerary[] = [
           { type: "dinner", style: "restaurant", name: "Mountain Room Restaurant", location: "Yosemite Valley Lodge", time: "7:00 PM", cost: "$30-50/person", notes: "Nice sit-down dinner — views of Yosemite Falls" },
         ],
         travel: [
-          { from: "Curry Village", to: "Tuolumne Meadows", driveTime: "1 hr 15 min", distance: "55 miles", notes: "Scenic Tioga Road" },
-          { from: "Tuolumne Meadows", to: "Tenaya Lake", driveTime: "20 min", distance: "8 miles", notes: "Quick stop for picnic" },
-          { from: "Tenaya Lake", to: "The Ahwahnee Hotel", driveTime: "50 min", distance: "40 miles" },
+          { from: "Curry Village", to: "Tuolumne Meadows", fromCoords: { lat: 37.7387, lng: -119.5711 }, toCoords: { lat: 37.8735, lng: -119.3594 }, driveTime: "1 hr 15 min", distance: "55 miles", notes: "Scenic Tioga Road" },
+          { from: "Tuolumne Meadows", to: "Tenaya Lake", fromCoords: { lat: 37.8735, lng: -119.3594 }, toCoords: { lat: 37.8317, lng: -119.4499 }, driveTime: "20 min", distance: "8 miles", notes: "Quick stop for picnic" },
+          { from: "Tenaya Lake", to: "The Ahwahnee Hotel", fromCoords: { lat: 37.8317, lng: -119.4499 }, toCoords: { lat: 37.7468, lng: -119.5750 }, driveTime: "50 min", distance: "40 miles" },
         ],
         lodging: "The Ahwahnee Hotel",
       },
@@ -797,8 +799,8 @@ export const itineraries: Itinerary[] = [
           { type: "lunch", style: "packed", name: "Road trip snacks", time: "12:00 PM", notes: "Pack snacks for the drive home" },
         ],
         travel: [
-          { from: "The Ahwahnee Hotel", to: "Happy Isles Trailhead", driveTime: "5 min", distance: "1 mile" },
-          { from: "Yosemite Valley", to: "Home", driveTime: "3-5 hours", distance: "Varies", notes: "Take Hwy 140 out for scenic Merced River canyon views" },
+          { from: "The Ahwahnee Hotel", to: "Happy Isles Trailhead", fromCoords: { lat: 37.7468, lng: -119.5750 }, toCoords: { lat: 37.7274, lng: -119.5579 }, driveTime: "5 min", distance: "1 mile" },
+          { from: "Yosemite Valley", to: "San Francisco", fromCoords: { lat: 37.7455, lng: -119.5936 }, toCoords: { lat: 37.7749, lng: -122.4194 }, driveTime: "3-5 hours", distance: "Varies", notes: "Take Hwy 140 out for scenic Merced River canyon views" },
         ],
         lodging: "Departure",
       },

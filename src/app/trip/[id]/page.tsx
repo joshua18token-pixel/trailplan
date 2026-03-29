@@ -6,8 +6,10 @@ import {
   Ruler, Star, ChevronDown, ChevronUp, Map, Shield, DollarSign, Bed,
   Car, Utensils, Coffee, Sun, Moon, Sunrise, Sandwich, Flame, ShoppingCart, TreePine,
   LogOut, LogIn, Navigation, X, Check, Search, Hotel, Tent, Home, Building,
+  ExternalLink, Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useDirections, googleMapsDirectionsUrl } from "@/hooks/useDirections";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import {
   itineraries, getActivityById, getParkById, activityTypeEmoji,
@@ -303,6 +305,24 @@ function SortableLodgingCard({ dayIndex, lodging, onChangeLodging }: {
 }
 
 function TravelCard({ segment }: { segment: TravelSegment }) {
+  const hasCoords = !!(segment.fromCoords && segment.toCoords);
+  const { result: liveDirections, loading } = useDirections(
+    segment.fromCoords?.lat,
+    segment.fromCoords?.lng,
+    segment.toCoords?.lat,
+    segment.toCoords?.lng
+  );
+
+  // Use live data if available, otherwise fall back to mock data
+  const driveTime = liveDirections?.driveTime || segment.driveTime;
+  const distance = liveDirections?.distance || segment.distance;
+  const googleMapsUrl = hasCoords
+    ? (liveDirections?.googleMapsUrl || googleMapsDirectionsUrl(
+        segment.fromCoords!.lat, segment.fromCoords!.lng,
+        segment.toCoords!.lat, segment.toCoords!.lng
+      ))
+    : null;
+
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
       <Car className="w-4 h-4 text-lake flex-shrink-0" />
@@ -313,11 +333,36 @@ function TravelCard({ segment }: { segment: TravelSegment }) {
           <span className="font-medium text-night/70">{segment.to}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-night/50 mt-0.5">
-          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{segment.driveTime}</span>
-          <span>{segment.distance}</span>
+          {loading ? (
+            <span className="flex items-center gap-1 text-lake"><Loader2 className="w-3 h-3 animate-spin" />Getting drive time...</span>
+          ) : (
+            <>
+              <span className="flex items-center gap-1 font-medium text-night/70"><Clock className="w-3 h-3" />{driveTime}</span>
+              <span>{distance}</span>
+              {liveDirections && !liveDirections.driveTime.includes("Unknown") && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[10px] font-medium">
+                  <img src="https://www.google.com/favicon.ico" alt="" className="w-2.5 h-2.5" />
+                  Live
+                </span>
+              )}
+            </>
+          )}
           {segment.notes && <span className="italic">· {segment.notes}</span>}
         </div>
       </div>
+      {googleMapsUrl && (
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all whitespace-nowrap"
+          title="Open in Google Maps"
+        >
+          <img src="https://www.google.com/favicon.ico" alt="" className="w-3.5 h-3.5" />
+          Maps
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      )}
     </div>
   );
 }
