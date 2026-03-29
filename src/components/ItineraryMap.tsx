@@ -6,6 +6,7 @@ import { getActivityById } from "@/data/mockData";
 
 interface ItineraryMapProps {
   days: ItineraryDay[];
+  center?: { lat: number; lng: number }; // Park center for generated trips
 }
 
 // Day colors for markers and routes
@@ -28,7 +29,7 @@ interface MapPoint {
   type: string;
 }
 
-export default function ItineraryMap({ days }: ItineraryMapProps) {
+export default function ItineraryMap({ days, center }: ItineraryMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const layerGroupRef = useRef<any>(null);
@@ -117,9 +118,11 @@ export default function ItineraryMap({ days }: ItineraryMapProps) {
       });
 
       if (!mapInstanceRef.current) {
-        // Center on Yosemite Valley by default
+        // Center on park location
         const defaultCenter: [number, number] = points.length > 0
           ? [points[0].lat, points[0].lng]
+          : center
+          ? [center.lat, center.lng]
           : [37.7455, -119.5936];
 
         mapInstanceRef.current = L.map(mapRef.current!, {
@@ -212,6 +215,17 @@ export default function ItineraryMap({ days }: ItineraryMapProps) {
       if (boundsCoords.length > 0) {
         const bounds = L.latLngBounds(boundsCoords);
         mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      } else if (center) {
+        // No activity points — center on the park with a reasonable zoom
+        mapInstanceRef.current.setView([center.lat, center.lng], 12);
+        // Add a park center marker
+        const icon = L.divIcon({
+          className: "custom-div-icon",
+          html: `<div style="background:${dayColors[0]};width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">📍</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        L.marker([center.lat, center.lng], { icon }).addTo(layerGroupRef.current);
       }
     });
 

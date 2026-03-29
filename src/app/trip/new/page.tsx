@@ -147,25 +147,35 @@ function TripWizardContent() {
     if (!mainPark) return;
     setBuilding(true);
     try {
+      const tripPayload = {
+        parks: allTripParks,
+        startDate: "2025-07-14", // TODO: use actual date inputs
+        endDate: "2025-07-18",
+        adults,
+        kids,
+        pets,
+        activities: selectedActivities,
+        fitness,
+        lodging,
+        pace,
+        budget,
+      };
       const res = await fetch("/api/trips/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parks: allTripParks,
-          startDate: "2025-07-14", // TODO: use actual date inputs
-          endDate: "2025-07-18",
-          adults,
-          kids,
-          pets,
-          activities: selectedActivities,
-          fitness,
-          lodging,
-          pace,
-          budget,
-        }),
+        body: JSON.stringify(tripPayload),
       });
       const data = await res.json();
       if (data.ok && data.slug) {
+        // Store trip data in localStorage for the itinerary page to pick up
+        // (Vercel serverless functions don't share in-memory state)
+        try {
+          const fullTripRes = await fetch(`/api/trips/generate?id=${data.slug}`);
+          const fullTrip = await fullTripRes.json();
+          if (!fullTrip.error) {
+            localStorage.setItem(`trailplan-trip-${data.slug}`, JSON.stringify(fullTrip));
+          }
+        } catch {}
         router.push(`/trip/${data.slug}`);
       } else {
         // Fallback to demo

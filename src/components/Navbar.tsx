@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Mountain, Compass, Map, PlusCircle, User, Menu, X } from "lucide-react";
+import { Mountain, Compass, Map, PlusCircle, User, Menu, X, Users } from "lucide-react";
 import { useState } from "react";
 
 export default function Navbar() {
@@ -29,6 +29,13 @@ export default function Navbar() {
             >
               <Compass className="w-4 h-4" />
               Explore
+            </Link>
+            <Link
+              href="/community"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-night/70 hover:text-forest hover:bg-forest/5 transition-all font-medium"
+            >
+              <Users className="w-4 h-4" />
+              Community
             </Link>
             <Link
               href="/trip/yosemite-adventure"
@@ -70,6 +77,14 @@ export default function Navbar() {
             >
               <Compass className="w-5 h-5" />
               Explore
+            </Link>
+            <Link
+              href="/community"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all"
+            >
+              <Users className="w-5 h-5" />
+              Community
             </Link>
             <Link
               href="/trip/yosemite-adventure"

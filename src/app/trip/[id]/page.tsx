@@ -245,11 +245,29 @@ function LodgingPicker({ currentLodging, onSelect, onClose }: {
               </button>
             );
           })}
-          {filtered.length === 0 && (
+          {filtered.length === 0 && lodgingOptions.length > 0 && (
             <div className="text-center py-8 text-night/40 text-sm">
               No lodging found matching your search.
             </div>
           )}
+          {lodgingOptions.length === 0 || (filtered.length === 0 && !search && !selectedType) ? (
+            <div className="text-center py-8">
+              <Bed className="w-10 h-10 text-lake/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-night/50">Lodging options for this park</p>
+              <p className="text-xs text-night/30 mt-1">Coming soon! We&apos;re adding lodging data for more parks.</p>
+              <div className="mt-4 space-y-2">
+                {["Campground", "Lodge", "Cabin", "Hotel", "RV Site"].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => { onSelect(`${currentLodging?.split(" ")[0] || "Park"} ${type}`); onClose(); }}
+                    className="w-full p-3 rounded-xl border border-gray-100 hover:border-forest/30 text-left text-sm text-night/60 hover:text-night transition-all"
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -922,9 +940,20 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   const [generatedTrip, setGeneratedTrip] = useState<any>(null);
   const [loadingTrip, setLoadingTrip] = useState(!mockItinerary);
 
-  // Fetch generated trip if not a mock
+  // Fetch generated trip if not a mock — check localStorage first (Vercel compat)
   useEffect(() => {
     if (!mockItinerary) {
+      // Try localStorage first
+      try {
+        const stored = localStorage.getItem(`trailplan-trip-${id}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setGeneratedTrip(parsed);
+          setLoadingTrip(false);
+          return;
+        }
+      } catch {}
+      // Fallback to API
       fetch(`/api/trips/generate?id=${encodeURIComponent(id)}`)
         .then((r) => r.json())
         .then((data) => {
@@ -1186,7 +1215,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Interactive Map */}
             <div className="relative h-48 sm:h-72 lg:h-80 rounded-xl sm:rounded-2xl overflow-hidden border border-cream-dark">
-              <ItineraryMap days={days} />
+              <ItineraryMap days={days} center={park?.coordinates} />
             </div>
 
             {/* Tabs */}
@@ -1244,7 +1273,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   onAddSlot={handleAddSlot}
                   onRemoveSlot={handleRemoveSlot}
                   onSwapSlot={handleSwapSlot}
-                  parkCoords={park?.coordinates || { lat: 37.8651, lng: -119.5383 }}
+                  parkCoords={park?.coordinates || generatedTrip?.parks?.[0]?.coordinates || { lat: 37.8651, lng: -119.5383 }}
                 />
               ))}
             </div>
