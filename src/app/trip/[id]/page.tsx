@@ -14,6 +14,9 @@ import DifficultyBadge from "@/components/DifficultyBadge";
 import MealEditor from "@/components/MealEditor";
 import AddEventModal from "@/components/AddEventModal";
 import ActivitySwapModal from "@/components/ActivitySwapModal";
+import dynamic from "next/dynamic";
+
+const ItineraryMap = dynamic(() => import("@/components/ItineraryMap"), { ssr: false });
 import {
   itineraries, getActivityById, getParkById, activityTypeEmoji,
   type Itinerary, type ItineraryDay, type ItinerarySlot, type TravelSegment, type MealStop, type MealStyle,
@@ -859,12 +862,91 @@ function DayCard({ day, dayIndex, parkId, onReorder, onUpdateDepartTime, onUpdat
   );
 }
 
+// Generate Option B: a more relaxed/different version of the itinerary
+function generateOptionB(baseDays: ItineraryDay[]): ItineraryDay[] {
+  // Create a relaxed version — fewer activities, later starts, more rest
+  return baseDays.map((day) => ({
+    ...day,
+    lodgingDepartTime: day.lodgingDepartTime
+      ? day.lodgingDepartTime.replace(/(\d+):/, (_, h) => `${Math.min(parseInt(h) + 2, 12)}:`)
+      : "9:00 AM",
+    lodgingArriveTime: day.lodgingArriveTime
+      ? day.lodgingArriveTime.replace(/(\d+):/, (_, h) => `${Math.max(parseInt(h) - 1, 4)}:`)
+      : "5:00 PM",
+    slots: day.slots.length > 1
+      ? [day.slots[day.slots.length - 1]] // Keep only the last (usually lighter) activity
+      : day.slots,
+    meals: day.meals.map((m) => ({
+      ...m,
+      style: (m.style === "packed" ? "restaurant" : m.style) as any,
+      name: m.style === "packed" ? "Dining at a local restaurant" : m.name,
+    })),
+  }));
+}
+
+// Create a blank day template
+function createBlankDay(dayNum: number, date: string): ItineraryDay {
+  return {
+    day: dayNum,
+    date,
+    lodgingDepartTime: "8:00 AM",
+    lodgingArriveTime: "6:00 PM",
+    slots: [],
+    meals: [
+      { type: "breakfast", style: "packed", name: "Plan your breakfast", time: "7:30 AM" },
+      { type: "lunch", style: "packed", name: "Plan your lunch", time: "12:00 PM" },
+      { type: "dinner", style: "restaurant", name: "Plan your dinner", time: "6:30 PM" },
+    ],
+    travel: [],
+    lodging: "Choose lodging",
+  };
+}
+
+interface ItineraryOption {
+  name: string;
+  days: ItineraryDay[];
+}
+
 export default function ItineraryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const itinerary = itineraries.find((i) => i.id === id) || itineraries[0];
   const park = getParkById(itinerary.parkId);
   const [activeTab, setActiveTab] = useState(0);
-  const [days, setDays] = useState<ItineraryDay[]>(itinerary.days);
+
+  // Multiple itinerary options
+  const [options, setOptions] = useState<ItineraryOption[]>([
+    { name: "Option A", days: itinerary.days },
+    { name: "Option B — Relaxed", days: generateOptionB(itinerary.days) },
+  ]);
+
+  // Current option's days
+  const days = options[activeTab]?.days || [];
+  const setDays = (updater: (prev: ItineraryDay[]) => ItineraryDay[]) => {
+    setOptions((prev) => {
+      const updated = [...prev];
+      updated[activeTab] = {
+        ...updated[activeTab],
+        days: typeof updater === "function" ? updater(updated[activeTab].days) : updater,
+      };
+      return updated;
+    });
+  };
+
+  const handleAddOption = () => {
+    const baseDates = itinerary.days.map((d) => d.date);
+    const newOption: ItineraryOption = {
+      name: `Option ${String.fromCharCode(65 + options.length)}`,
+      days: baseDates.map((date, i) => createBlankDay(i + 1, date)),
+    };
+    setOptions((prev) => [...prev, newOption]);
+    setActiveTab(options.length);
+  };
+
+  const handleDeleteOption = (index: number) => {
+    if (options.length <= 1) return;
+    setOptions((prev) => prev.filter((_, i) => i !== index));
+    if (activeTab >= options.length - 1) setActiveTab(Math.max(0, options.length - 2));
+  };
 
   const handleReorder = (dayIndex: number, from: number, to: number) => {
     setDays((prev) => {
@@ -958,8 +1040,6 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   const packedMeals = days.reduce((sum, d) => sum + d.meals.filter((m) => m.style === "packed" || m.style === "picnic" || m.style === "campfire").length, 0);
   const diningOut = totalMeals - packedMeals;
 
-  const tabs = ["Option A", "Option B"];
-
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
@@ -998,31 +1078,38 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Map + Itinerary */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Map Placeholder */}
-            <div className="relative h-64 sm:h-80 rounded-2xl overflow-hidden bg-night/5 border border-cream-dark">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <Map className="w-12 h-12 text-night/20 mx-auto mb-3" />
-                  <p className="text-night/40 font-medium">Add Mapbox token to enable map</p>
-                  <p className="text-night/30 text-sm mt-1">Interactive trail map with waypoints &amp; driving routes</p>
-                </div>
-              </div>
+            {/* Interactive Map */}
+            <div className="relative h-64 sm:h-80 rounded-2xl overflow-hidden border border-cream-dark">
+              <ItineraryMap days={days} />
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-2">
-              {tabs.map((tab, i) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(i)}
-                  className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-                    activeTab === i ? "bg-forest text-white shadow-md" : "bg-white text-night/60 hover:bg-cream-dark"
-                  }`}
-                >
-                  {tab}
-                </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {options.map((opt, i) => (
+                <div key={i} className="relative group">
+                  <button
+                    onClick={() => setActiveTab(i)}
+                    className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${
+                      activeTab === i ? "bg-forest text-white shadow-md" : "bg-white text-night/60 hover:bg-cream-dark"
+                    }`}
+                  >
+                    {opt.name}
+                  </button>
+                  {options.length > 1 && activeTab === i && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteOption(i); }}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"
+                      title="Delete this option"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ))}
-              <button className="px-5 py-2 rounded-xl text-sm font-medium bg-white text-night/40 hover:text-forest hover:bg-cream-dark transition-all">
+              <button
+                onClick={handleAddOption}
+                className="px-5 py-2 rounded-xl text-sm font-medium bg-white text-night/40 hover:text-forest hover:bg-cream-dark transition-all border border-dashed border-cream-dark"
+              >
                 + New Option
               </button>
             </div>
