@@ -854,6 +854,7 @@ function DayCard({ day, dayIndex, parkId, parkName, onReorder, onUpdateDepartTim
               currentActivity={getActivityById(day.slots[editingSlotIndex].activityId) || null}
               parkId={parkId}
               parkName={parkName}
+              parkCoords={parkCoords}
               onSwap={(updatedSlot) => {
                 onSwapSlot(dayIndex, editingSlotIndex, updatedSlot);
                 setEditingSlotIndex(null);

@@ -15,6 +15,7 @@ interface ActivitySwapModalProps {
   currentActivity: Activity | null;
   parkId: string;
   parkName?: string;
+  parkCoords?: { lat: number; lng: number };
   onSwap: (updatedSlot: ItinerarySlot) => void;
   onClose: () => void;
 }
@@ -43,7 +44,15 @@ const timeSlotOptions: { value: TimeSlot; label: string; emoji: string }[] = [
   { value: "evening", label: "Evening", emoji: "🌙" },
 ];
 
-export default function ActivitySwapModal({ currentSlot, currentActivity, parkId, parkName, onSwap, onClose }: ActivitySwapModalProps) {
+function calcDistanceMiles(a: {lat:number;lng:number}, b: {lat:number;lng:number}) {
+  const R = 3959;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+export default function ActivitySwapModal({ currentSlot, currentActivity, parkId, parkName, parkCoords, onSwap, onClose }: ActivitySwapModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<ActivityType | "all">("all");
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | "all">("all");
@@ -138,20 +147,31 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
                 placeholder="e.g. Bring rain jacket, start early..." />
             </div>
 
-            {/* Learn More about the park */}
+            {/* Learn More about the activity's park */}
             {(() => {
-              const pName = parkName || getParkById(parkId)?.name || notes.replace(/^.*at\s+/i, "").trim();
+              // Use the ACTIVITY's park, not the trip's main park
+              const activityPark = currentActivity ? getParkById(currentActivity.parkId) : null;
+              const activityParkName = activityPark?.name;
+              // For generated activities, try to extract park name from notes
+              const noteParkName = notes ? notes.replace(/^.*at\s+/i, "").trim() : "";
+              // Priority: activity's actual park > notes mention > trip's main park
+              const pName = activityParkName || (noteParkName.length > 3 ? noteParkName : null) || parkName || getParkById(parkId)?.name;
               if (!pName) return null;
-              const npsSearch = `https://www.google.com/search?q=${encodeURIComponent(pName + " official site")}`;
+              const searchQuery = currentActivity?.name
+                ? `${currentActivity.name} ${activityParkName || parkName || ""}`
+                : `${pName} official site`;
+              const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
               return (
                 <a
-                  href={npsSearch}
+                  href={searchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest/5 border border-forest/10 text-forest hover:bg-forest/10 transition-colors"
                 >
                   <Globe className="w-4 h-4" />
-                  <span className="text-sm font-medium">Learn more about {pName}</span>
+                  <span className="text-sm font-medium">
+                    Learn more about {currentActivity?.name || pName}
+                  </span>
                   <ExternalLink className="w-3.5 h-3.5 ml-auto" />
                 </a>
               );
@@ -244,11 +264,25 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
                           {isCurrent && <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest text-white">Current</span>}
                           {isSelected && !isCurrent && <span className="text-[10px] px-2 py-0.5 rounded-full bg-sunset text-white">Selected</span>}
                         </div>
-                        {showAllParks && park && (
-                          <p className="text-xs text-night/40 flex items-center gap-1 mb-1">
-                            <MapPin className="w-3 h-3" />{park.name}
-                          </p>
-                        )}
+                        {showAllParks && park && (() => {
+                          const parkLoc = park.coordinates;
+                          const miles = parkCoords && parkLoc ? Math.round(calcDistanceMiles(parkCoords, parkLoc)) : 0;
+                          const isFar = miles > 200;
+                          return (
+                            <>
+                              <p className={`text-xs flex items-center gap-1 mb-1 ${isFar ? "text-red-500 font-medium" : "text-night/40"}`}>
+                                <MapPin className="w-3 h-3" />{park.name}
+                                {miles > 0 && <span>· {miles.toLocaleString()} mi away</span>}
+                                {isFar && <span>⚠️</span>}
+                              </p>
+                              {isFar && (
+                                <p className="text-[10px] text-red-400 mb-1">
+                                  ⚠️ {miles > 500 ? "Requires a flight or full day driving!" : "Several hours of driving from your main park"}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
                         <div className="flex items-center gap-4 text-xs text-night/50">
                           <span className="flex items-center gap-1"><Ruler className="w-3 h-3" />{a.distance} mi</span>
                           <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />{a.elevationGain.toLocaleString()} ft</span>
