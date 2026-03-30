@@ -21,6 +21,7 @@ interface TripRequest {
     coordinates: { lat: number; lng: number };
     activities: string[];
     bestSeason: string;
+    image?: string;
   }[];
   startDate: string;
   endDate: string;

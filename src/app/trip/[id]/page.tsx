@@ -8,6 +8,7 @@ import {
   LogOut, LogIn, Navigation, X, Check, Search, Hotel, Tent, Home, Building,
   ExternalLink, Loader2, AlertTriangle, StickyNote, Compass, Trash2,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { useDirections, googleMapsDirectionsUrl } from "@/hooks/useDirections";
 import DifficultyBadge from "@/components/DifficultyBadge";
@@ -936,6 +937,7 @@ interface ItineraryOption {
 
 export default function ItineraryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { user } = useAuth();
   const mockItinerary = itineraries.find((i) => i.id === id);
   const [generatedTrip, setGeneratedTrip] = useState<any>(null);
   const [loadingTrip, setLoadingTrip] = useState(!mockItinerary);
@@ -1293,8 +1295,8 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
             </div>
 
             {/* Days */}
-            {/* Save Trip Banner (non-logged-in users) */}
-            {showSaveBanner && (
+            {/* Save Trip Banner (non-logged-in users only) */}
+            {showSaveBanner && !user && (
               <SaveTripBanner
                 onSignUp={() => { setAuthMode("signup"); setShowAuthModal(true); }}
                 onDismiss={() => setShowSaveBanner(false)}

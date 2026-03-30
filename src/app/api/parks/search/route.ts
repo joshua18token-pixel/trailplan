@@ -175,6 +175,35 @@ const stateSeasons: Record<string, string> = {
 };
 
 // ============================================================
+// Park Image Discovery
+// ============================================================
+async function findParkImage(parkName: string): Promise<string | undefined> {
+  try {
+    // Try Wikimedia Commons for a photo
+    const wikiRes = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(parkName)}&prop=pageimages&format=json&pithumbsize=800&origin=*`
+    );
+    if (wikiRes.ok) {
+      const wikiData = await wikiRes.json();
+      const pages = wikiData.query?.pages;
+      if (pages) {
+        const page = Object.values(pages)[0] as any;
+        if (page?.thumbnail?.source) return page.thumbnail.source;
+      }
+    }
+  } catch {}
+
+  try {
+    // Fallback: Unsplash Source (free, no API key, redirects to image)
+    // Use a themed URL based on park keywords
+    const keywords = parkName.replace(/state park|national park|park/gi, "").trim();
+    return `https://source.unsplash.com/800x400/?${encodeURIComponent(keywords + " nature park")}`;
+  } catch {}
+
+  return undefined;
+}
+
+// ============================================================
 // AI Discovery: Nominatim + NPS
 // ============================================================
 async function discoverPark(query: string): Promise<ParkResult | null> {
@@ -266,6 +295,9 @@ async function discoverPark(query: string): Promise<ParkResult | null> {
       : qLower.includes("monument") ? "monument"
       : "state_park";
 
+    // Try to find an image
+    const image = await findParkImage(fullName);
+
     const entry: ParkResult = {
       id,
       name: cleanName,
@@ -274,6 +306,7 @@ async function discoverPark(query: string): Promise<ParkResult | null> {
       state: geoResult.state,
       description: `${fullName} in ${geoResult.state}. ${profile.description}`,
       coordinates: { lat: geoResult.lat, lng: geoResult.lng },
+      image,
       activities: profile.activities,
       bestSeason: stateSeasons[geoResult.state] || profile.bestSeason,
       addedBy: "ai_discovery",

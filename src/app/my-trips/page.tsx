@@ -79,7 +79,7 @@ export default function MyTripsPage() {
               createdAt: t.created_at,
               activities: t.days?.reduce((sum: number, d: any) => sum + (d.slots?.length || 0), 0) || 0,
               difficulty: t.settings?.fitness || "Moderate",
-              coverImage: parkImages[t.main_park_id] || undefined,
+              coverImage: parkImages[t.main_park_id] || t.parks?.[0]?.image || undefined,
             });
           }
         }
@@ -107,6 +107,7 @@ export default function MyTripsPage() {
               createdAt: data.createdAt || new Date().toISOString(),
               activities: data.days?.reduce((sum: number, d: any) => sum + (d.slots?.length || 0), 0) || 0,
               difficulty: data.settings?.fitness || "Moderate",
+              coverImage: data.parks?.[0]?.image || parkImages[data.mainParkId] || undefined,
             });
           }
         }
