@@ -3,12 +3,25 @@
 import { useState, useMemo } from "react";
 import {
   X, Search, Clock, Ruler, TrendingUp, MapPin, Edit3, StickyNote, ExternalLink, Globe,
+  Mountain, Loader2, Navigation,
 } from "lucide-react";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import {
   activities, activityTypeEmoji, getParkById,
   type Activity, type ActivityType, type Difficulty, type ItinerarySlot, type TimeSlot,
 } from "@/data/mockData";
+
+interface DiscoveredPark {
+  id: string;
+  name: string;
+  fullName: string;
+  type: string;
+  state: string;
+  description: string;
+  coordinates: { lat: number; lng: number };
+  activities: string[];
+  image?: string;
+}
 
 interface ActivitySwapModalProps {
   currentSlot: ItinerarySlot;
@@ -65,6 +78,24 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
   const [endTime, setEndTime] = useState(currentSlot.endTime || "");
   const [notes, setNotes] = useState(currentSlot.notes || "");
 
+  // Park discovery search
+  const [swapTab, setSwapTab] = useState<"activities" | "parks">("activities");
+  const [parkSearchQuery, setParkSearchQuery] = useState("");
+  const [parkSearchResults, setParkSearchResults] = useState<DiscoveredPark[]>([]);
+  const [parkSearching, setParkSearching] = useState(false);
+  const [selectedParkActivities, setSelectedParkActivities] = useState<{ park: DiscoveredPark; activity: string } | null>(null);
+
+  const searchParks = async () => {
+    if (!parkSearchQuery.trim()) return;
+    setParkSearching(true);
+    try {
+      const res = await fetch(`/api/parks/search?q=${encodeURIComponent(parkSearchQuery)}`);
+      const data = await res.json();
+      setParkSearchResults(data.results || []);
+    } catch { setParkSearchResults([]); }
+    setParkSearching(false);
+  };
+
   const filteredActivities = useMemo(() => {
     return activities.filter((a) => {
       if (!showAllParks && a.parkId !== parkId) return false;
@@ -81,6 +112,21 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
   }, [searchQuery, typeFilter, difficultyFilter, showAllParks, parkId]);
 
   const handleSave = () => {
+    if (selectedParkActivities) {
+      // Swapping to a discovered park activity
+      const { park, activity } = selectedParkActivities;
+      onSwap({
+        ...currentSlot,
+        activityId: `${park.id}-${activity.replace(/\s+/g, "-").toLowerCase()}`,
+        customTitle: `${activity} at ${park.fullName}`,
+        timeSlot,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        notes: `${activity} at ${park.fullName}, ${park.state}`,
+        slotType: "activity",
+      });
+      return;
+    }
     if (!selectedActivity) return;
     onSwap({
       ...currentSlot,
@@ -182,28 +228,145 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-night">Swap Activity</h4>
-              <label className="flex items-center gap-2 text-xs text-night/50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showAllParks}
-                  onChange={(e) => setShowAllParks(e.target.checked)}
-                  className="rounded border-gray-300 text-forest focus:ring-forest"
-                />
-                Show all parks
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSwapTab("activities")}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${swapTab === "activities" ? "bg-forest text-white" : "bg-gray-100 text-night/50 hover:bg-gray-200"}`}
+                >
+                  Activities
+                </button>
+                <button
+                  onClick={() => setSwapTab("parks")}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${swapTab === "parks" ? "bg-forest text-white" : "bg-gray-100 text-night/50 hover:bg-gray-200"}`}
+                >
+                  <Mountain className="w-3 h-3" /> Search Parks
+                </button>
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-3">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-night/30" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest"
-                placeholder="Search activities, trails, kayaking..."
-              />
-            </div>
+            {swapTab === "parks" ? (
+              <>
+                {/* Park Search */}
+                <div className="relative mb-3">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-night/30" />
+                  <input
+                    type="text"
+                    value={parkSearchQuery}
+                    onChange={(e) => setParkSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchParks()}
+                    className="w-full pl-10 pr-20 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest"
+                    placeholder="Search any park: Yosemite, Yellowstone, Ichetucknee..."
+                  />
+                  <button
+                    onClick={searchParks}
+                    disabled={parkSearching}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg bg-forest text-white text-xs font-medium hover:bg-forest-light transition-colors disabled:opacity-50"
+                  >
+                    {parkSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Search"}
+                  </button>
+                </div>
+
+                {/* Park Results */}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {parkSearchResults.map((park) => {
+                    const miles = parkCoords && park.coordinates ? Math.round(calcDistanceMiles(parkCoords, park.coordinates)) : 0;
+                    const isFar = miles > 200;
+                    return (
+                      <div key={park.id} className="p-3 rounded-xl border border-gray-100 hover:border-forest/30 transition-all">
+                        <div className="flex items-start gap-3 mb-2">
+                          {park.image ? (
+                            <img src={park.image} alt={park.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-forest/10 flex items-center justify-center flex-shrink-0">
+                              <Mountain className="w-5 h-5 text-forest" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-sm text-night">{park.fullName}</span>
+                            <div className="flex items-center gap-2 text-xs text-night/40 mt-0.5">
+                              <span>{park.state}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-cream text-night/50 text-[10px]">
+                                {park.type === "state_park" ? "State Park" : park.type === "national_park" ? "National Park" : park.type.replace(/_/g, " ")}
+                              </span>
+                              {miles > 0 && (
+                                <span className={isFar ? "text-red-500 font-medium" : ""}>
+                                  📍 {miles.toLocaleString()} mi {isFar && "⚠️"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isFar && (
+                          <div className="text-[10px] text-red-400 mb-2 px-1">
+                            ⚠️ {miles > 500 ? "Requires a flight or full day driving from your main park!" : "Several hours driving from your main park"}
+                          </div>
+                        )}
+
+                        {/* Activities from this park */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {park.activities.map((act) => {
+                            const isSelected = selectedParkActivities?.park.id === park.id && selectedParkActivities?.activity === act;
+                            return (
+                              <button
+                                key={act}
+                                onClick={() => {
+                                  setSelectedParkActivities({ park, activity: act });
+                                  setSelectedActivity(null);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                  isSelected ? "bg-forest text-white ring-2 ring-forest/30" : "bg-cream text-night/60 hover:bg-forest/10 hover:text-forest"
+                                }`}
+                              >
+                                {activityTypeEmoji[act as ActivityType] || "🏞️"} {act}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {parkSearchResults.length === 0 && parkSearchQuery && !parkSearching && (
+                    <div className="text-center py-6 text-night/40 text-sm">
+                      No parks found. Try a different search.
+                    </div>
+                  )}
+
+                  {!parkSearchQuery && (
+                    <div className="text-center py-6 text-night/30 text-sm">
+                      <Navigation className="w-8 h-8 mx-auto mb-2 text-night/15" />
+                      Search for any national park, state park, or recreation area
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Original Activities Tab */}
+                <div className="flex items-center justify-end mb-2">
+                  <label className="flex items-center gap-2 text-xs text-night/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showAllParks}
+                      onChange={(e) => setShowAllParks(e.target.checked)}
+                      className="rounded border-gray-300 text-forest focus:ring-forest"
+                    />
+                    Show all parks
+                  </label>
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-3">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-night/30" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest"
+                    placeholder="Search activities, trails, kayaking..."
+                  />
+                </div>
 
             {/* Filters */}
             <div className="space-y-2 mb-3">
@@ -299,23 +462,29 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
               })}
               {filteredActivities.length === 0 && (
                 <div className="text-center py-8 text-night/40 text-sm">
-                  No activities found. Try different filters or enable "Show all parks".
+                  No activities found. Try different filters or enable &ldquo;Show all parks&rdquo; or search by park name.
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Footer */}
         <div className="p-5 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
           <p className="text-xs text-night/40">
-            {selectedActivity ? `${activityTypeEmoji[selectedActivity.type]} ${selectedActivity.name}` : "Select an activity"}
+            {selectedParkActivities
+              ? `🏞️ ${selectedParkActivities.activity} at ${selectedParkActivities.park.fullName}`
+              : selectedActivity
+                ? `${activityTypeEmoji[selectedActivity.type]} ${selectedActivity.name}`
+                : "Select an activity"}
           </p>
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-night/60 hover:bg-gray-100 transition-colors">Cancel</button>
             <button
               onClick={handleSave}
-              disabled={!selectedActivity}
+              disabled={!selectedActivity && !selectedParkActivities}
               className="px-6 py-2.5 rounded-xl text-sm font-medium bg-forest text-white hover:bg-forest-light transition-colors shadow-md disabled:opacity-40"
             >
               Save Changes
