@@ -5,366 +5,328 @@ import Link from "next/link";
 import {
   MapPin, Calendar, Plus, Trash2, Edit3, Share2, Lock,
   ChevronRight, Mountain, Clock, Users, Star, Plane, Car,
-  Eye, EyeOff, Crown, Search,
+  Eye, EyeOff, Crown, Search, LogIn,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 
 interface SavedTrip {
   id: string;
   slug: string;
   name: string;
-  customName?: string;
   parks: { name: string; state: string; type: string }[];
   startDate: string;
   endDate: string;
   duration: number;
   status: "planning" | "upcoming" | "completed" | "draft";
   shared: boolean;
-  travelFrom?: { location: string; mode: "fly" | "drive" | "bus" | "train"; notes?: string };
-  travelTo?: { location: string; mode: "fly" | "drive" | "bus" | "train"; notes?: string };
   createdAt: string;
   activities: number;
   difficulty: string;
   coverImage?: string;
-  fromTemplate?: string;
 }
 
-// Mock saved trips
-const mockTrips: SavedTrip[] = [
-  {
-    id: "1",
-    slug: "yosemite-adventure",
-    name: "Yosemite Adventure — 5 Days",
-    parks: [{ name: "Yosemite National Park", state: "California", type: "National Park" }],
-    startDate: "2025-07-14",
-    endDate: "2025-07-18",
-    duration: 5,
-    status: "upcoming",
-    shared: true,
-    travelFrom: { location: "San Francisco, CA", mode: "drive", notes: "~3.5 hours via I-580" },
-    createdAt: "2025-06-01",
-    activities: 8,
-    difficulty: "Moderate",
-    coverImage: "https://images.unsplash.com/photo-1562310503-a918c4c61e38?w=400&q=80",
-  },
-  {
-    id: "2",
-    slug: "highlands-hammock-adventure",
-    name: "Highlands Hammock Adventure — 3 Days",
-    customName: "Florida Weekend Getaway",
-    parks: [
-      { name: "Highlands Hammock State Park", state: "Florida", type: "State Park" },
-    ],
-    startDate: "2025-10-10",
-    endDate: "2025-10-12",
-    duration: 3,
-    status: "planning",
-    shared: false,
-    travelFrom: { location: "Sebring, FL", mode: "drive", notes: "15 minutes" },
-    createdAt: "2025-09-15",
-    activities: 5,
-    difficulty: "Easy",
-    fromTemplate: "Florida State Parks Road Trip",
-  },
-  {
-    id: "3",
-    slug: "grand-canyon-rim-to-rim",
-    name: "Grand Canyon Rim-to-Rim — 3 Days",
-    parks: [{ name: "Grand Canyon National Park", state: "Arizona", type: "National Park" }],
-    startDate: "2025-04-20",
-    endDate: "2025-04-22",
-    duration: 3,
-    status: "completed",
-    shared: true,
-    travelFrom: { location: "Phoenix, AZ", mode: "drive", notes: "4 hours to South Rim" },
-    createdAt: "2025-03-01",
-    activities: 6,
-    difficulty: "Hard",
-    coverImage: "https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?w=400&q=80",
-  },
-];
-
-const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-  planning: { bg: "bg-blue-100", text: "text-blue-700", label: "Planning" },
-  upcoming: { bg: "bg-green-100", text: "text-green-700", label: "Upcoming" },
-  completed: { bg: "bg-gray-100", text: "text-gray-600", label: "Completed" },
+const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+  planning: { bg: "bg-lake/10", text: "text-lake", label: "Planning" },
+  upcoming: { bg: "bg-forest/10", text: "text-forest", label: "Upcoming" },
+  completed: { bg: "bg-trail/10", text: "text-trail", label: "Completed" },
   draft: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Draft" },
-};
-
-const travelModeIcons: Record<string, React.ReactNode> = {
-  fly: <Plane className="w-3.5 h-3.5" />,
-  drive: <Car className="w-3.5 h-3.5" />,
-  bus: <Car className="w-3.5 h-3.5" />,
-  train: <Car className="w-3.5 h-3.5" />,
 };
 
 const MAX_FREE_TRIPS = 5;
 
-export default function MyTripsPage() {
-  const [trips, setTrips] = useState<SavedTrip[]>(mockTrips);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState<string | null>(null);
-  const [nameInput, setNameInput] = useState("");
-  const [showTravelEditor, setShowTravelEditor] = useState<string | null>(null);
-  const [isLoggedIn] = useState(true); // Prototype: assume logged in
+// Park images for display
+const parkImages: Record<string, string> = {
+  yosemite: "https://images.unsplash.com/photo-1562310503-a918c4c61e38?w=400&q=80",
+  zion: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=400&q=80",
+  "grand-canyon": "https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?w=400&q=80",
+  glacier: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=400&q=80",
+  yellowstone: "https://images.unsplash.com/photo-1533419271378-21a4f5e204d1?w=400&q=80",
+  acadia: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80",
+};
 
-  // Load any trips from localStorage (generated trips)
+export default function MyTripsPage() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const [trips, setTrips] = useState<SavedTrip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
+  // Load trips from Supabase + localStorage
   useEffect(() => {
-    try {
-      const keys = Object.keys(localStorage).filter((k) => k.startsWith("trailplan-trip-"));
-      for (const key of keys) {
-        const slug = key.replace("trailplan-trip-", "");
-        if (!trips.find((t) => t.slug === slug) && slug !== "yosemite-adventure") {
+    async function loadTrips() {
+      const allTrips: SavedTrip[] = [];
+
+      // Load from Supabase if logged in
+      if (user) {
+        const { data } = await supabase
+          .from("trips")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false });
+
+        if (data) {
+          for (const t of data) {
+            allTrips.push({
+              id: t.id,
+              slug: t.slug || t.id,
+              name: t.name,
+              parks: (t.parks || []).map((p: any) => ({ name: p.fullName || p.name, state: p.state, type: p.type })),
+              startDate: t.dates?.start || "2025-07-14",
+              endDate: t.dates?.end || "2025-07-18",
+              duration: t.days?.length || 1,
+              status: (t.status || "planning") as SavedTrip["status"],
+              shared: t.shared || false,
+              createdAt: t.created_at,
+              activities: t.days?.reduce((sum: number, d: any) => sum + (d.slots?.length || 0), 0) || 0,
+              difficulty: t.settings?.fitness || "Moderate",
+              coverImage: parkImages[t.main_park_id] || undefined,
+            });
+          }
+        }
+      }
+
+      // Also load from localStorage (for trips not yet associated with account)
+      try {
+        const keys = Object.keys(localStorage).filter((k) => k.startsWith("trailplan-trip-"));
+        for (const key of keys) {
+          const slug = key.replace("trailplan-trip-", "");
+          // Skip if already loaded from Supabase
+          if (allTrips.find((t) => t.slug === slug || t.id === slug)) continue;
           const data = JSON.parse(localStorage.getItem(key) || "{}");
           if (data.name) {
-            setTrips((prev) => [...prev, {
-              id: slug,
+            allTrips.push({
+              id: data.id || slug,
               slug,
               name: data.name,
               parks: data.parks?.map((p: any) => ({ name: p.fullName || p.name, state: p.state, type: p.type })) || [],
               startDate: data.settings?.startDate || "2025-07-14",
               endDate: data.settings?.endDate || "2025-07-18",
-              duration: data.days?.length || 5,
-              status: "planning" as const,
+              duration: data.days?.length || 1,
+              status: "planning",
               shared: false,
               createdAt: data.createdAt || new Date().toISOString(),
               activities: data.days?.reduce((sum: number, d: any) => sum + (d.slots?.length || 0), 0) || 0,
               difficulty: data.settings?.fitness || "Moderate",
-            }]);
+            });
           }
         }
-      }
-    } catch {}
-  }, []);
+      } catch {}
+
+      setTrips(allTrips);
+      setLoading(false);
+    }
+
+    if (!authLoading) loadTrips();
+  }, [user, authLoading]);
+
+  const handleDelete = async (tripId: string) => {
+    if (!confirm("Delete this trip? This cannot be undone.")) return;
+
+    // Delete from Supabase
+    if (user) {
+      await supabase.from("trips").delete().eq("id", tripId);
+    }
+
+    // Delete from localStorage
+    const trip = trips.find((t) => t.id === tripId);
+    if (trip) {
+      localStorage.removeItem(`trailplan-trip-${trip.slug}`);
+      localStorage.removeItem(`trailplan-trip-${trip.id}`);
+    }
+
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+  };
 
   const filtered = trips.filter((t) => !activeFilter || t.status === activeFilter);
-  const tripsUsed = trips.length;
-  const canCreateMore = tripsUsed < MAX_FREE_TRIPS;
-
-  const handleRename = (tripId: string) => {
-    setTrips((prev) => prev.map((t) =>
-      t.id === tripId ? { ...t, customName: nameInput || undefined } : t
-    ));
-    setEditingName(null);
+  const statusCounts = {
+    planning: trips.filter((t) => t.status === "planning").length,
+    upcoming: trips.filter((t) => t.status === "upcoming").length,
+    completed: trips.filter((t) => t.status === "completed").length,
   };
 
-  const handleToggleShare = (tripId: string) => {
-    setTrips((prev) => prev.map((t) =>
-      t.id === tripId ? { ...t, shared: !t.shared } : t
-    ));
-  };
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-3 border-forest border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
-  const handleDelete = (tripId: string) => {
-    if (confirm("Delete this trip? This can't be undone.")) {
-      setTrips((prev) => prev.filter((t) => t.id !== tripId));
-    }
-  };
+  // ====== NOT LOGGED IN — EMPTY STATE ======
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <div className="w-20 h-20 rounded-2xl bg-forest/10 flex items-center justify-center mx-auto mb-6">
+            <Mountain className="w-10 h-10 text-forest" />
+          </div>
+          <h1 className="text-3xl font-bold text-night mb-3">My Trips</h1>
+          <p className="text-night/50 mb-8 max-w-md mx-auto">
+            Sign in to save your trips, access them from any device, and share them with the community.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-forest text-white font-medium hover:bg-forest-light transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In / Sign Up
+            </Link>
+            <Link
+              href="/trip/new"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-cream-dark text-night/70 font-medium hover:bg-cream transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Plan a Trip
+            </Link>
+          </div>
+          <p className="text-xs text-night/30 mt-6">✨ Get 5 free trips — no credit card required</p>
+        </div>
+      </div>
+    );
+  }
 
-  const formatDate = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const formatDateRange = (start: string, end: string) => {
-    const s = new Date(start + "T12:00:00");
-    const e = new Date(end + "T12:00:00");
-    const sameMonth = s.getMonth() === e.getMonth();
-    if (sameMonth) {
-      return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.getDate()}, ${e.getFullYear()}`;
-    }
-    return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-  };
+  // ====== LOGGED IN — NO TRIPS YET ======
+  if (trips.length === 0) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <div className="w-20 h-20 rounded-2xl bg-forest/10 flex items-center justify-center mx-auto mb-6">
+            <MapPin className="w-10 h-10 text-forest" />
+          </div>
+          <h1 className="text-3xl font-bold text-night mb-3">No Trips Yet</h1>
+          <p className="text-night/50 mb-8 max-w-md mx-auto">
+            Start planning your first adventure! Search for any park and we&apos;ll build a custom itinerary for you.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Link
+              href="/trip/new"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-forest text-white font-medium hover:bg-forest-light transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Plan Your First Trip
+            </Link>
+            <Link
+              href="/community"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-cream-dark text-night/70 font-medium hover:bg-cream transition-colors"
+            >
+              <Star className="w-4 h-4" />
+              Browse Community Trips
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+  // ====== LOGGED IN — HAS TRIPS ======
   return (
     <div className="min-h-screen bg-cream">
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-night">My Trips</h1>
-            <p className="text-sm text-night/50 mt-1">
-              {tripsUsed} of {MAX_FREE_TRIPS} free trips used
-              {!canCreateMore && (
-                <span className="ml-2 text-sunset font-medium">
-                  <Crown className="w-3.5 h-3.5 inline" /> Upgrade to Pro for unlimited trips
-                </span>
-              )}
-            </p>
+            <p className="text-sm text-night/50 mt-1">{trips.length} of {MAX_FREE_TRIPS} free trips used</p>
           </div>
           <Link
             href="/trip/new"
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all shadow-md ${
-              canCreateMore
-                ? "bg-forest text-white hover:bg-forest-light"
-                : "bg-gray-200 text-gray-500 cursor-not-allowed"
-            }`}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-night text-white font-medium text-sm hover:bg-night/80 transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            New Trip
+            <Plus className="w-4 h-4" /> New Trip
           </Link>
         </div>
 
-        {/* Usage Bar */}
-        <div className="mb-6 p-4 rounded-2xl bg-white border border-cream-dark">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-night/50">Trip Slots</span>
-            <span className="text-xs text-night/40">{tripsUsed}/{MAX_FREE_TRIPS} free</span>
+        {/* Free tier progress */}
+        {profile?.plan !== "pro" && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-night/60">Trip Slots</span>
+              <span className="text-sm text-night/40">{trips.length}/{MAX_FREE_TRIPS} free</span>
+            </div>
+            <div className="h-2 bg-cream rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${trips.length >= MAX_FREE_TRIPS ? "bg-red-400" : "bg-forest"}`}
+                style={{ width: `${Math.min(100, (trips.length / MAX_FREE_TRIPS) * 100)}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 rounded-full bg-cream-dark overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${tripsUsed >= MAX_FREE_TRIPS ? "bg-sunset" : "bg-forest"}`}
-              style={{ width: `${Math.min(100, (tripsUsed / MAX_FREE_TRIPS) * 100)}%` }}
-            />
-          </div>
-          {tripsUsed >= MAX_FREE_TRIPS - 1 && (
-            <p className="text-xs text-sunset mt-2 flex items-center gap-1">
-              <Crown className="w-3.5 h-3.5" />
-              Upgrade to Pro ($20/yr) for unlimited trips, ad-free, and offline access
-            </p>
-          )}
-        </div>
+        )}
 
-        {/* Status Filters */}
+        {/* Filters */}
         <div className="flex items-center gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setActiveFilter(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              !activeFilter ? "bg-forest text-white" : "bg-white border border-cream-dark text-night/50 hover:bg-cream"
-            }`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!activeFilter ? "bg-forest text-white" : "bg-white border border-cream-dark text-night/60 hover:bg-cream"}`}
           >
             All ({trips.length})
           </button>
-          {Object.entries(statusColors).map(([key, val]) => {
-            const count = trips.filter((t) => t.status === key).length;
-            if (count === 0) return null;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveFilter(activeFilter === key ? null : key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeFilter === key ? `${val.bg} ${val.text}` : "bg-white border border-cream-dark text-night/50 hover:bg-cream"
-                }`}
-              >
-                {val.label} ({count})
-              </button>
-            );
-          })}
+          {Object.entries(statusCounts).filter(([, count]) => count > 0).map(([status, count]) => (
+            <button
+              key={status}
+              onClick={() => setActiveFilter(activeFilter === status ? null : status)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${activeFilter === status ? "bg-forest text-white" : "bg-white border border-cream-dark text-night/60 hover:bg-cream"}`}
+            >
+              {statusConfig[status]?.label} ({count})
+            </button>
+          ))}
         </div>
 
-        {/* Trip List */}
+        {/* Trip Cards */}
         <div className="space-y-4">
           {filtered.map((trip) => {
-            const displayName = trip.customName || trip.name;
-            const status = statusColors[trip.status];
-            const isEditing = editingName === trip.id;
-
+            const sc = statusConfig[trip.status] || statusConfig.planning;
             return (
-              <div key={trip.id} className="bg-white rounded-2xl border border-cream-dark overflow-hidden hover:shadow-md transition-all">
+              <div key={trip.id} className="bg-white rounded-2xl overflow-hidden border border-cream-dark hover:shadow-md transition-all">
                 <div className="flex flex-col sm:flex-row">
-                  {/* Cover Image or Color Block */}
-                  <div className="sm:w-48 h-32 sm:h-auto flex-shrink-0 relative">
+                  {/* Image */}
+                  <div className="relative w-full sm:w-48 h-32 sm:h-auto flex-shrink-0">
                     {trip.coverImage ? (
-                      <img src={trip.coverImage} alt={displayName} className="w-full h-full object-cover" />
+                      <img src={trip.coverImage} alt={trip.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-forest/20 to-trail/20 flex items-center justify-center">
-                        <Mountain className="w-10 h-10 text-forest/30" />
+                      <div className="w-full h-full bg-cream flex items-center justify-center">
+                        <Mountain className="w-10 h-10 text-night/10" />
                       </div>
                     )}
-                    <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold ${status.bg} ${status.text}`}>
-                      {status.label.toUpperCase()}
+                    <span className={`absolute top-2 left-2 text-[10px] font-bold px-2.5 py-1 rounded-full ${sc.bg} ${sc.text}`}>
+                      {sc.label.toUpperCase()}
                     </span>
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        {/* Name — editable */}
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={nameInput}
-                              onChange={(e) => setNameInput(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleRename(trip.id); if (e.key === "Escape") setEditingName(null); }}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-forest text-sm focus:outline-none focus:ring-2 focus:ring-forest"
-                              placeholder={trip.name}
-                              autoFocus
-                            />
-                            <button onClick={() => handleRename(trip.id)} className="px-3 py-1.5 rounded-lg bg-forest text-white text-xs font-medium">Save</button>
-                            <button onClick={() => setEditingName(null)} className="text-xs text-night/40">Cancel</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 group">
-                            <Link href={`/trip/${trip.slug}`} className="font-bold text-night text-base sm:text-lg hover:text-forest transition-colors truncate">
-                              {displayName}
-                            </Link>
-                            <button
-                              onClick={() => { setEditingName(trip.id); setNameInput(trip.customName || ""); }}
-                              className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-cream transition-all"
-                              title="Rename trip"
-                            >
-                              <Edit3 className="w-3.5 h-3.5 text-night/30" />
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Parks */}
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {trip.parks.map((p) => (
-                            <span key={p.name} className="text-xs text-night/40 flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />{p.name}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Dates — prominent */}
-                        <div className="flex items-center gap-4 mt-2.5 text-sm">
-                          <span className="flex items-center gap-1.5 font-medium text-night">
-                            <Calendar className="w-4 h-4 text-forest" />
-                            {formatDateRange(trip.startDate, trip.endDate)}
-                          </span>
-                          <span className="text-night/40">·</span>
-                          <span className="text-night/50">{trip.duration} days</span>
-                          <span className="text-night/40">·</span>
-                          <span className="text-night/50">{trip.activities} activities</span>
-                        </div>
-
-                        {/* Travel info */}
-                        {trip.travelFrom && (
-                          <div className="flex items-center gap-2 mt-2 text-xs text-night/40">
-                            {travelModeIcons[trip.travelFrom.mode]}
-                            <span>From: {trip.travelFrom.location}</span>
-                            {trip.travelFrom.notes && <span className="text-night/25">({trip.travelFrom.notes})</span>}
-                            <Lock className="w-3 h-3 text-night/20" />
-                          </div>
-                        )}
-
-                        {trip.fromTemplate && (
-                          <span className="inline-flex items-center gap-1 mt-2 text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-500">
-                            <Star className="w-2.5 h-2.5" /> From template: {trip.fromTemplate}
-                          </span>
-                        )}
+                      <div>
+                        <h3 className="font-bold text-night text-base sm:text-lg">{trip.name}</h3>
+                        <p className="text-xs text-night/40 mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {trip.parks.map((p) => p.name).join(", ") || "Park"}
+                        </p>
                       </div>
-
-                      {/* Actions */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button
-                          onClick={() => handleToggleShare(trip.id)}
-                          className={`p-2 rounded-lg transition-all ${trip.shared ? "bg-forest/10 text-forest" : "bg-gray-50 text-night/30 hover:bg-gray-100"}`}
-                          title={trip.shared ? "Shared publicly" : "Private"}
-                        >
-                          {trip.shared ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                        </button>
-                        <button
                           onClick={() => handleDelete(trip.id)}
-                          className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all text-xs"
+                          className="p-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all flex items-center gap-1 group"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span className="hidden sm:inline">Delete</span>
+                          <span className="text-xs hidden group-hover:inline">Delete</span>
                         </button>
                         <Link
                           href={`/trip/${trip.slug}`}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-forest text-white text-xs font-medium hover:bg-forest-light transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors"
                         >
                           Open <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 mt-3 text-sm text-night/50 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(trip.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(trip.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                      <span>{trip.duration} days</span>
+                      <span>{trip.activities} activities</span>
                     </div>
                   </div>
                 </div>
@@ -372,22 +334,6 @@ export default function MyTripsPage() {
             );
           })}
         </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-cream-dark">
-            <Mountain className="w-12 h-12 text-night/15 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-night/50">No trips yet</h3>
-            <p className="text-sm text-night/30 mt-1">Create your first trip or copy one from the community!</p>
-            <div className="flex items-center justify-center gap-3 mt-5">
-              <Link href="/trip/new" className="px-5 py-2.5 rounded-xl bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors">
-                Create Trip
-              </Link>
-              <Link href="/community" className="px-5 py-2.5 rounded-xl border border-cream-dark text-sm font-medium text-night/60 hover:bg-cream transition-colors">
-                Browse Community
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
