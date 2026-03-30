@@ -628,10 +628,11 @@ function SortableSlotCard({ slot, dayIndex, onRemove, onEdit }: { slot: Itinerar
   );
 }
 
-function DayCard({ day, dayIndex, parkId, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, onAddSlot, onRemoveSlot, onSwapSlot, parkCoords }: {
+function DayCard({ day, dayIndex, parkId, parkName, onReorder, onUpdateDepartTime, onUpdateArriveTime, onChangeLodging, onUpdateMeal, onAddSlot, onRemoveSlot, onSwapSlot, parkCoords }: {
   day: ItineraryDay;
   dayIndex: number;
   parkId: string;
+  parkName?: string;
   onReorder: (dayIndex: number, from: number, to: number) => void;
   onUpdateDepartTime: (dayIndex: number, time: string) => void;
   onUpdateArriveTime: (dayIndex: number, time: string) => void;
@@ -852,6 +853,7 @@ function DayCard({ day, dayIndex, parkId, onReorder, onUpdateDepartTime, onUpdat
               currentSlot={day.slots[editingSlotIndex]}
               currentActivity={getActivityById(day.slots[editingSlotIndex].activityId) || null}
               parkId={parkId}
+              parkName={parkName}
               onSwap={(updatedSlot) => {
                 onSwapSlot(dayIndex, editingSlotIndex, updatedSlot);
                 setEditingSlotIndex(null);
@@ -1309,6 +1311,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   day={day}
                   dayIndex={i}
                   parkId={itinerary.parkId}
+                  parkName={park?.name || generatedTrip?.parks?.[0]?.fullName}
                   onReorder={handleReorder}
                   onUpdateDepartTime={handleUpdateDepartTime}
                   onUpdateArriveTime={handleUpdateArriveTime}

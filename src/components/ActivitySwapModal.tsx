@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import {
-  X, Search, Clock, Ruler, TrendingUp, MapPin, Edit3, StickyNote,
+  X, Search, Clock, Ruler, TrendingUp, MapPin, Edit3, StickyNote, ExternalLink, Globe,
 } from "lucide-react";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import {
@@ -14,6 +14,7 @@ interface ActivitySwapModalProps {
   currentSlot: ItinerarySlot;
   currentActivity: Activity | null;
   parkId: string;
+  parkName?: string;
   onSwap: (updatedSlot: ItinerarySlot) => void;
   onClose: () => void;
 }
@@ -42,7 +43,7 @@ const timeSlotOptions: { value: TimeSlot; label: string; emoji: string }[] = [
   { value: "evening", label: "Evening", emoji: "🌙" },
 ];
 
-export default function ActivitySwapModal({ currentSlot, currentActivity, parkId, onSwap, onClose }: ActivitySwapModalProps) {
+export default function ActivitySwapModal({ currentSlot, currentActivity, parkId, parkName, onSwap, onClose }: ActivitySwapModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<ActivityType | "all">("all");
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | "all">("all");
@@ -136,6 +137,25 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest"
                 placeholder="e.g. Bring rain jacket, start early..." />
             </div>
+
+            {/* Learn More about the park */}
+            {(() => {
+              const pName = parkName || getParkById(parkId)?.name || notes.replace(/^.*at\s+/i, "").trim();
+              if (!pName) return null;
+              const npsSearch = `https://www.google.com/search?q=${encodeURIComponent(pName + " official site")}`;
+              return (
+                <a
+                  href={npsSearch}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest/5 border border-forest/10 text-forest hover:bg-forest/10 transition-colors"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-sm font-medium">Learn more about {pName}</span>
+                  <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+                </a>
+              );
+            })()}
           </div>
 
           {/* Swap Activity */}
