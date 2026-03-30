@@ -278,7 +278,7 @@ export default function MyTripsPage() {
           {filtered.map((trip) => {
             const sc = statusConfig[trip.status] || statusConfig.planning;
             return (
-              <div key={trip.id} className="bg-white rounded-2xl overflow-hidden border border-cream-dark hover:shadow-md transition-all">
+              <Link key={trip.id} href={`/trip/${trip.slug}`} className="block bg-white rounded-2xl overflow-hidden border border-cream-dark hover:shadow-md hover:border-forest/20 transition-all cursor-pointer group">
                 <div className="flex flex-col sm:flex-row">
                   {/* Image */}
                   <div className="relative w-full sm:w-48 h-32 sm:h-auto flex-shrink-0">
@@ -298,27 +298,19 @@ export default function MyTripsPage() {
                   <div className="flex-1 p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-bold text-night text-base sm:text-lg">{trip.name}</h3>
+                        <h3 className="font-bold text-night text-base sm:text-lg group-hover:text-forest transition-colors">{trip.name}</h3>
                         <p className="text-xs text-night/40 mt-0.5 flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
                           {trip.parks.map((p) => p.name).join(", ") || "Park"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button
-                          onClick={() => handleDelete(trip.id)}
-                          className="p-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all flex items-center gap-1 group"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span className="text-xs hidden group-hover:inline">Delete</span>
-                        </button>
-                        <Link
-                          href={`/trip/${trip.slug}`}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors"
-                        >
-                          Open <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(trip.id); }}
+                        className="p-2 rounded-lg bg-gray-50 text-night/30 hover:bg-red-50 hover:text-red-500 transition-all flex-shrink-0"
+                        title="Delete trip"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-4 mt-3 text-sm text-night/50 flex-wrap">
@@ -331,7 +323,7 @@ export default function MyTripsPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

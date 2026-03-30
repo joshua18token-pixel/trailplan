@@ -69,7 +69,7 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<ActivityType | "all">("all");
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | "all">("all");
-  const [showAllParks, setShowAllParks] = useState(false);
+  const [showAllParks, setShowAllParks] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(currentActivity);
 
   // Edit fields
@@ -226,22 +226,19 @@ export default function ActivitySwapModal({ currentSlot, currentActivity, parkId
 
           {/* Swap Activity */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-night">Swap Activity</h4>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSwapTab("activities")}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${swapTab === "activities" ? "bg-forest text-white" : "bg-gray-100 text-night/50 hover:bg-gray-200"}`}
-                >
-                  Activities
-                </button>
-                <button
-                  onClick={() => setSwapTab("parks")}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${swapTab === "parks" ? "bg-forest text-white" : "bg-gray-100 text-night/50 hover:bg-gray-200"}`}
-                >
-                  <Mountain className="w-3 h-3" /> Search Parks
-                </button>
-              </div>
+            <div className="flex rounded-xl bg-gray-100 p-1 mb-4">
+              <button
+                onClick={() => setSwapTab("activities")}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${swapTab === "activities" ? "bg-white text-night shadow-sm" : "text-night/40 hover:text-night/60"}`}
+              >
+                🏃 Activities
+              </button>
+              <button
+                onClick={() => setSwapTab("parks")}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${swapTab === "parks" ? "bg-white text-night shadow-sm" : "text-night/40 hover:text-night/60"}`}
+              >
+                <Mountain className="w-4 h-4" /> Search Parks
+              </button>
             </div>
 
             {swapTab === "parks" ? (
