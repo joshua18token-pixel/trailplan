@@ -4,7 +4,7 @@ import type { Park } from "@/data/mockData";
 
 export default function ParkCard({ park, activityCount }: { park: Park; activityCount: number }) {
   return (
-    <Link href="/trip/new" className="group block">
+    <Link href={`/parks/${park.id}`} className="group block">
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
         {/* Image */}
         <div className="relative h-48 overflow-hidden">
@@ -18,7 +18,7 @@ export default function ParkCard({ park, activityCount }: { park: Park; activity
             <h3 className="text-lg font-bold text-white">{park.name}</h3>
             <div className="flex items-center gap-1 text-white/80 text-sm mt-0.5">
               <MapPin className="w-3.5 h-3.5" />
-              {park.region} · {park.bestSeason}
+              {park.region} · 🗓️ Best: {park.bestSeason}
             </div>
           </div>
         </div>
