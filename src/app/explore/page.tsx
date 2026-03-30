@@ -129,13 +129,22 @@ export default function ExplorePage() {
                 <Link key={park.id} href={`/parks/${park.id}`} className="group block">
                   <div className="relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
                     <div className="relative h-40 overflow-hidden">
-                      {park.image ? (
-                        <img src={park.image} alt={park.fullName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-forest/60 to-forest/20 flex items-center justify-center">
-                          <Mountain className="w-12 h-12 text-white/30" />
-                        </div>
-                      )}
+                      {park.image && park.image.trim() ? (
+                        <img 
+                          src={park.image} 
+                          alt={park.fullName} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full bg-gradient-to-br from-forest/60 to-forest/20 items-center justify-center ${park.image && park.image.trim() ? 'hidden' : 'flex'}`}>
+                        <Mountain className="w-12 h-12 text-white/30" />
+                      </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
                         <h3 className="font-bold text-white text-sm">{park.fullName}</h3>
                         <p className="text-white/70 text-xs flex items-center gap-1">

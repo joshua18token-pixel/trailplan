@@ -156,13 +156,22 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen bg-cream">
       {/* Hero */}
       <div className="relative h-64 sm:h-80 lg:h-96 overflow-hidden bg-night">
-        {park.image ? (
-          <img src={park.image} alt={park.fullName} className="w-full h-full object-cover opacity-80" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-forest/80 to-night flex items-center justify-center">
-            <Mountain className="w-24 h-24 text-white/20" />
-          </div>
-        )}
+        {park.image && park.image.trim() ? (
+          <img 
+            src={park.image} 
+            alt={park.fullName} 
+            className="w-full h-full object-cover opacity-80"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const fallback = target.nextElementSibling as HTMLElement;
+              if (fallback) fallback.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <div className={`w-full h-full bg-gradient-to-br from-forest/80 to-night items-center justify-center ${park.image && park.image.trim() ? 'hidden' : 'flex'}`}>
+          <Mountain className="w-24 h-24 text-white/20" />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
           <div className="max-w-5xl mx-auto">
