@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 // ============================================================
-// Trip Generation API
+// Trip Generation API — backed by Supabase
 // Takes wizard selections and generates a full itinerary
 // ============================================================
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 interface TripRequest {
   parks: {
@@ -124,7 +129,7 @@ function getDayCount(start: string, end: string): number {
   return Math.max(1, Math.min(diff, 14)); // Cap at 14 days
 }
 
-function generateTrip(req: TripRequest) {
+async function generateTrip(req: TripRequest) {
   const tripId = `trip-${generateId()}`;
   const mainPark = req.parks[0];
   const dayCount = getDayCount(req.startDate, req.endDate);
@@ -267,9 +272,27 @@ function generateTrip(req: TripRequest) {
     createdAt: new Date().toISOString(),
   };
 
-  // Store it
+  // Store in memory (fallback)
   tripStore.set(tripId, trip);
-  tripStore.set(slug, trip); // Also store by slug for URL access
+  tripStore.set(slug, trip);
+
+  // Save to Supabase
+  if (supabase) {
+    await supabase.from("trips").upsert({
+      id: tripId,
+      name: trip.name,
+      slug,
+      status: "planning",
+      main_park_id: mainPark.id,
+      parks: trip.parks,
+      days: trip.days,
+      settings: trip.settings,
+      dates: { start: req.startDate, end: req.endDate },
+      shared: false,
+    }, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.error("Failed to save trip to Supabase:", error);
+    });
+  }
 
   return trip;
 }
@@ -282,7 +305,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "At least one park is required" }, { status: 400 });
     }
 
-    const trip = generateTrip(body);
+    const trip = await generateTrip(body);
 
     return NextResponse.json({
       ok: true,
@@ -300,11 +323,38 @@ export async function POST(request: NextRequest) {
 // GET: retrieve a stored trip
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id") || "";
-  const trip = tripStore.get(id);
 
-  if (!trip) {
-    return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+  // Check in-memory first (fast)
+  const memTrip = tripStore.get(id);
+  if (memTrip) return NextResponse.json(memTrip);
+
+  // Check Supabase
+  if (supabase) {
+    // Try by ID
+    let { data } = await supabase.from("trips").select("*").eq("id", id).single();
+    // Try by slug
+    if (!data) {
+      const slugResult = await supabase.from("trips").select("*").eq("slug", id).single();
+      data = slugResult.data;
+    }
+    if (data) {
+      // Reconstruct trip format from DB row
+      const trip = {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        mainParkId: data.main_park_id,
+        parks: data.parks || [],
+        days: data.days || [],
+        settings: data.settings || {},
+        createdAt: data.created_at,
+      };
+      // Cache in memory
+      tripStore.set(data.id, trip);
+      if (data.slug) tripStore.set(data.slug, trip);
+      return NextResponse.json(trip);
+    }
   }
 
-  return NextResponse.json(trip);
+  return NextResponse.json({ error: "Trip not found" }, { status: 404 });
 }
