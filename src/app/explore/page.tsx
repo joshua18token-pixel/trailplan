@@ -1,10 +1,29 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import { Search, MapPin, Calendar, Mountain, TreePine, ChevronRight } from "lucide-react";
 import ActivityCard from "@/components/ActivityCard";
 import FilterChip from "@/components/FilterChip";
 import { activities, type ActivityType, type Difficulty } from "@/data/mockData";
+
+interface ParkInfo {
+  id: string;
+  name: string;
+  fullName: string;
+  type: string;
+  state: string;
+  description: string;
+  activities: string[];
+  bestSeason: string;
+  image?: string;
+}
+
+const typeLabels: Record<string, string> = {
+  national_park: "National Park",
+  state_park: "State Park",
+  national_forest: "National Forest",
+};
 
 const activityFilters: { id: ActivityType; label: string; emoji: string }[] = [
   { id: "hiking", label: "Hiking", emoji: "🥾" },
@@ -22,9 +41,14 @@ const difficultyFilters: { id: Difficulty; label: string }[] = [
 ];
 
 export default function ExplorePage() {
+  const [parks, setParks] = useState<ParkInfo[]>([]);
   const [search, setSearch] = useState("");
   const [activeTypes, setActiveTypes] = useState<ActivityType[]>([]);
   const [activeDifficulties, setActiveDifficulties] = useState<Difficulty[]>([]);
+
+  useEffect(() => {
+    fetch("/api/parks/search?q=").then(r => r.json()).then(d => setParks(d.results || [])).catch(() => {});
+  }, []);
   const [dogFriendly, setDogFriendly] = useState(false);
 
   const toggleType = (t: ActivityType) =>
@@ -94,7 +118,51 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        {/* Results */}
+        {/* Parks Section */}
+        {parks.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-xl font-bold text-night mb-4 flex items-center gap-2">
+              <Mountain className="w-5 h-5 text-forest" /> Parks
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {parks.map((park) => (
+                <Link key={park.id} href={`/parks/${park.id}`} className="group block">
+                  <div className="relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
+                    <div className="relative h-40 overflow-hidden">
+                      {park.image ? (
+                        <img src={park.image} alt={park.fullName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-forest/60 to-forest/20 flex items-center justify-center">
+                          <Mountain className="w-12 h-12 text-white/30" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                        <h3 className="font-bold text-white text-sm">{park.fullName}</h3>
+                        <p className="text-white/70 text-xs flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {park.state} · {park.bestSeason}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm text-night/60 line-clamp-2">{park.description}</p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs font-medium text-forest">{park.activities.length} activities</span>
+                        <span className="text-xs font-medium text-sunset group-hover:text-sunset-light flex items-center gap-1">
+                          Explore <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Activities Results */}
+        <h2 className="text-xl font-bold text-night mb-4 flex items-center gap-2">
+          <TreePine className="w-5 h-5 text-trail" /> Activities
+        </h2>
         <p className="text-sm text-night/50 mb-4">{filtered.length} activities found</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filtered.map((activity) => (
