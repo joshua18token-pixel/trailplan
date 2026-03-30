@@ -1186,10 +1186,16 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex flex-col gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm text-night/50 mb-1">
+              <a
+                href={generatedTrip?.parks?.[0]?.website || `https://www.google.com/search?q=${encodeURIComponent((park?.name || generatedTrip?.parks?.[0]?.fullName || "National Park") + " official site")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-night/50 hover:text-forest transition-colors group mb-1"
+              >
                 <MapPin className="w-4 h-4" />
-                {park?.name || "National Park"}
-              </div>
+                <span className="group-hover:underline">{park?.name || generatedTrip?.parks?.[0]?.fullName || "National Park"}</span>
+                <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-night">{itinerary.name}</h1>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -1200,13 +1206,6 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Permits
               </Link>
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${editMode ? "bg-forest text-white" : "bg-cream text-night/60 hover:bg-cream-dark"}`}
-              >
-                <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                {editMode ? "Done Editing" : "Edit"}
-              </button>
               <div className="relative">
                 <button
                   onClick={() => setShowShareMenu(!showShareMenu)}

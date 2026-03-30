@@ -120,8 +120,26 @@ function TripWizardContent() {
     }
   };
 
+  // Calculate distance between two coordinates (miles)
+  const calcDistanceMiles = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const R = 3959; // Earth radius in miles
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  };
+
+  const [distanceWarning, setDistanceWarning] = useState<{ park: string; miles: number; from: string } | null>(null);
+
   const addParkToTrip = (park: SelectedPark) => {
     if (!additionalParks.find((p) => p.id === park.id)) {
+      // Check distance from main park
+      if (mainPark && park.coordinates && mainPark.coordinates) {
+        const miles = calcDistanceMiles(mainPark.coordinates, park.coordinates);
+        if (miles > 200) {
+          setDistanceWarning({ park: park.fullName, miles: Math.round(miles), from: mainPark.fullName });
+        }
+      }
       setAdditionalParks([...additionalParks, park]);
     }
   };
@@ -276,26 +294,59 @@ function TripWizardContent() {
                       <h3 className="text-sm font-medium text-night/50 mb-3">Also visiting:</h3>
                       <div className="space-y-2">
                         {additionalParks.map((park) => (
-                          <div key={park.id} className="flex items-center gap-3 p-3 rounded-xl border border-cream-dark bg-cream/50">
-                            {park.image ? (
-                              <img src={park.image} alt={park.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-forest/10 flex items-center justify-center flex-shrink-0">
-                                <TreePine className="w-4 h-4 text-forest" />
+                          <div key={park.id}>
+                            <div className="flex items-center gap-3 p-3 rounded-xl border border-cream-dark bg-cream/50">
+                              {park.image ? (
+                                <img src={park.image} alt={park.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-forest/10 flex items-center justify-center flex-shrink-0">
+                                  <TreePine className="w-4 h-4 text-forest" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-sm text-night">{park.fullName}</span>
+                                <span className="text-xs text-night/40 ml-2">{park.state}</span>
+                                {mainPark && park.coordinates && mainPark.coordinates && (() => {
+                                  const miles = calcDistanceMiles(mainPark.coordinates, park.coordinates);
+                                  return (
+                                    <div className={`text-xs mt-0.5 flex items-center gap-1 ${miles > 200 ? "text-red-500 font-medium" : "text-night/40"}`}>
+                                      📍 {Math.round(miles)} miles from {mainPark.name}
+                                      {miles > 200 && " ⚠️"}
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-sm text-night">{park.fullName}</span>
-                              <span className="text-xs text-night/40 ml-2">{park.state}</span>
+                              <button
+                                onClick={() => { removeParkFromTrip(park.id); setDistanceWarning(null); }}
+                                className="p-1 rounded-lg hover:bg-red-50 text-night/30 hover:text-red-500 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => removeParkFromTrip(park.id)}
-                              className="p-1 rounded-lg hover:bg-red-50 text-night/30 hover:text-red-500 transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Distance Warning */}
+                  {distanceWarning && (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-red-700">Long Distance Warning</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            <strong>{distanceWarning.park}</strong> is <strong>{distanceWarning.miles} miles</strong> from {distanceWarning.from}. 
+                            That&apos;s {distanceWarning.miles > 500 ? "a full day of driving or a flight" : "several hours of driving"} — are you sure you want both in the same trip?
+                          </p>
+                          <p className="text-xs text-red-500 mt-1">
+                            💡 Consider making separate trips or adding extra travel days.
+                          </p>
+                        </div>
+                        <button onClick={() => setDistanceWarning(null)} className="p-1 rounded-lg hover:bg-red-100 text-red-400">
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   )}
