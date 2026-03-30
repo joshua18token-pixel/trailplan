@@ -1004,6 +1004,8 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
   const [showSaveBanner, setShowSaveBanner] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
+  const [editMode, setEditMode] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   // Multiple itinerary options
   const [options, setOptions] = useState<ItineraryOption[]>(() => [
@@ -1196,14 +1198,55 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Permits
               </Link>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-cream text-night/60 hover:bg-cream-dark transition-colors text-xs sm:text-sm font-medium">
+              <button
+                onClick={() => setEditMode(!editMode)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${editMode ? "bg-forest text-white" : "bg-cream text-night/60 hover:bg-cream-dark"}`}
+              >
                 <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Edit
+                {editMode ? "Done Editing" : "Edit"}
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-forest text-white hover:bg-forest-light transition-colors text-xs sm:text-sm font-medium">
-                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Share
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-forest text-white hover:bg-forest-light transition-colors text-xs sm:text-sm font-medium"
+                >
+                  <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  Share
+                </button>
+                {showShareMenu && (
+                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-cream-dark w-56 z-50 overflow-hidden">
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(window.location.href); setShowShareMenu(false); alert("Link copied!"); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-night/70 hover:bg-cream transition-colors text-left"
+                    >
+                      📋 Copy Link
+                    </button>
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out my trip on TrailPlan!")}&url=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={() => setShowShareMenu(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-night/70 hover:bg-cream transition-colors"
+                    >
+                      🐦 Share on X / Twitter
+                    </a>
+                    <a
+                      href={`https://www.facebook.com/sharer/sharer.php?u=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={() => setShowShareMenu(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-night/70 hover:bg-cream transition-colors"
+                    >
+                      📘 Share on Facebook
+                    </a>
+                    <Link
+                      href="/community"
+                      onClick={() => setShowShareMenu(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-night/70 hover:bg-cream transition-colors border-t border-cream-dark"
+                    >
+                      🏆 Share to Community
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1318,10 +1361,39 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                   <span className="text-orange-600 font-medium">{diningOut}</span>
                 </div>
                 <hr className="border-cream-dark" />
+                {/* Entry Fee */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-night/60 flex items-center gap-1"><DollarSign className="w-4 h-4" />Est. Cost</span>
-                  <span className="font-bold text-forest">$1,200 – $1,800</span>
+                  <span className="text-sm text-night/60 flex items-center gap-1">🎟️ Entry / Tickets</span>
+                  <Link href={`/trip/${id}/permits`} className="font-bold text-night hover:text-forest hover:underline">
+                    {isGenerated && generatedTrip?.parks?.[0]?.type === "state_park" ? "$4 – $6" : "$15 – $35"}
+                  </Link>
                 </div>
+                {/* Estimated Cost - calculated */}
+                {(() => {
+                  const numPeople = generatedTrip?.settings?.adults
+                    ? (generatedTrip.settings.adults + generatedTrip.settings.kids)
+                    : 2;
+                  const avgMealCost = 20; // $20 per person per meal when dining out
+                  const packedMealCost = 8; // $8 per person for packed meals
+                  const mealCostTotal = (diningOut * avgMealCost * numPeople) + (packedMeals * packedMealCost * numPeople);
+                  const lodgingPerNight = generatedTrip?.settings?.lodging === "camping" ? 25 : 120;
+                  const lodgingTotal = Math.max(0, days.length - 1) * lodgingPerNight;
+                  const entryFee = isGenerated && generatedTrip?.parks?.[0]?.type === "state_park" ? 6 : 35;
+                  const lowEst = Math.round((mealCostTotal * 0.8) + lodgingTotal + entryFee);
+                  const highEst = Math.round((mealCostTotal * 1.2) + (lodgingTotal * 1.3) + entryFee + 100);
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-night/60 flex items-center gap-1"><DollarSign className="w-4 h-4" />Est. Cost ({numPeople} people)</span>
+                        <span className="font-bold text-forest">${lowEst.toLocaleString()} – ${highEst.toLocaleString()}</span>
+                      </div>
+                      <div className="text-[10px] text-night/30 ml-5 space-y-0.5">
+                        <div>Meals: ~${mealCostTotal.toLocaleString()} ({diningOut}× dining @ ${avgMealCost}/person + {packedMeals}× packed @ ${packedMealCost}/person)</div>
+                        <div>Lodging: ~${lodgingTotal.toLocaleString()} ({days.length - 1} nights × ${lodgingPerNight}/night)</div>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-night/60 flex items-center gap-1"><Shield className="w-4 h-4" />Permits Needed</span>
                   <Link href={`/trip/${id}/permits`} className="font-bold text-sunset hover:underline">{permitsNeeded}</Link>
