@@ -135,97 +135,208 @@ function searchLocalDB(query: string): ParkEntry[] {
   return results;
 }
 
-// AI Discovery: generate park data from query
-// In production this would call an LLM API or scrape NPS/state park websites
-// For the prototype, we use structured web search simulation
-async function discoverPark(query: string): Promise<ParkEntry | null> {
-  try {
-    // Try NPS API first (free, no key needed for basic search)
-    const npsRes = await fetch(
-      `https://developer.nps.gov/api/v1/parks?q=${encodeURIComponent(query)}&limit=3&api_key=DEMO_KEY`,
-      { next: { revalidate: 86400 } }
-    );
+// Known state park activity profiles by keyword in park name
+const parkActivityProfiles: Record<string, { activities: string[]; description: string; bestSeason: string }> = {
+  springs: {
+    activities: ["swimming", "kayaking", "snorkeling", "hiking", "camping", "wildlife watching"],
+    description: "A natural springs park featuring crystal-clear spring-fed waters perfect for swimming, kayaking, and snorkeling. The surrounding trails wind through lush forest habitats.",
+    bestSeason: "Year-round (springs maintain ~72°F), busiest May-September",
+  },
+  hammock: {
+    activities: ["hiking", "biking", "camping", "wildlife watching", "horseback riding"],
+    description: "A hardwood hammock preserve with ancient oaks, boardwalk trails through cypress swamps, and diverse wildlife including native bird species.",
+    bestSeason: "October - April (cooler, fewer mosquitoes)",
+  },
+  river: {
+    activities: ["kayaking", "canoeing", "fishing", "swimming", "camping", "hiking"],
+    description: "A scenic river park offering paddling, fishing, and riverside trails. The waterway supports rich ecosystems and diverse wildlife.",
+    bestSeason: "March - November",
+  },
+  lake: {
+    activities: ["fishing", "kayaking", "swimming", "camping", "hiking", "boating"],
+    description: "A lake recreation area with fishing, swimming beaches, boating access, and lakeside camping. Trails circle the shoreline through natural habitats.",
+    bestSeason: "April - October",
+  },
+  beach: {
+    activities: ["swimming", "fishing", "kayaking", "hiking", "camping", "wildlife watching"],
+    description: "A coastal park with pristine beaches, dunes, and coastal trails. Great for swimming, shelling, fishing, and observing shorebirds and marine life.",
+    bestSeason: "March - November",
+  },
+  canyon: {
+    activities: ["hiking", "rock climbing", "sightseeing", "camping", "photography"],
+    description: "A dramatic canyon landscape with scenic overlooks, challenging trails, and geological formations carved over millennia.",
+    bestSeason: "March - May, September - November",
+  },
+  forest: {
+    activities: ["hiking", "biking", "camping", "wildlife watching", "horseback riding", "fishing"],
+    description: "A forested preserve with miles of trails through diverse woodland ecosystems, offering excellent hiking, mountain biking, and nature observation.",
+    bestSeason: "Year-round, best in spring and fall",
+  },
+  falls: {
+    activities: ["hiking", "swimming", "sightseeing", "photography", "camping"],
+    description: "A waterfall park featuring cascading falls, swimming holes, and scenic hiking trails through gorges and forest.",
+    bestSeason: "Spring (peak water flow) through fall",
+  },
+  mountain: {
+    activities: ["hiking", "rock climbing", "camping", "sightseeing", "biking"],
+    description: "A mountain park with summit trails, panoramic views, and diverse terrain ranging from valleys to ridgelines.",
+    bestSeason: "May - October",
+  },
+  default: {
+    activities: ["hiking", "camping", "sightseeing", "wildlife watching"],
+    description: "A scenic park offering trails, natural habitats, and outdoor recreation opportunities.",
+    bestSeason: "Check local listings for seasonal info",
+  },
+};
 
-    if (npsRes.ok) {
-      const npsData = await npsRes.json();
-      if (npsData.data && npsData.data.length > 0) {
-        const park = npsData.data[0];
-        const id = park.parkCode || query.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        
-        const entry: ParkEntry = {
-          id,
-          name: park.name?.replace(/ National Park| State Park| National Forest/g, "") || query,
-          fullName: park.fullName || query,
-          type: park.designation?.toLowerCase().includes("national park") ? "national_park"
-            : park.designation?.toLowerCase().includes("state") ? "state_park"
-            : park.designation?.toLowerCase().includes("forest") ? "national_forest"
-            : park.designation?.toLowerCase().includes("monument") ? "monument"
-            : "recreation_area",
-          state: park.states || "Unknown",
-          description: park.description || `${query} — discovered by TrailPlan AI.`,
-          coordinates: {
-            lat: parseFloat(park.latitude) || 0,
-            lng: parseFloat(park.longitude) || 0,
-          },
-          website: park.url || undefined,
-          image: park.images?.[0]?.url || undefined,
-          activities: (park.activities || []).map((a: any) => a.name?.toLowerCase()).filter(Boolean).slice(0, 8),
-          bestSeason: "Check park website for seasonal info",
-          addedBy: "ai_discovery",
-          addedAt: new Date().toISOString().split("T")[0],
-        };
-
-        // Add to database for future users
-        parkDatabase.set(id, entry);
-        return entry;
-      }
-    }
-  } catch (e) {
-    // NPS API failed, try fallback
+function getActivityProfile(parkName: string): { activities: string[]; description: string; bestSeason: string } {
+  const lower = parkName.toLowerCase();
+  for (const [keyword, profile] of Object.entries(parkActivityProfiles)) {
+    if (keyword !== "default" && lower.includes(keyword)) return profile;
   }
+  return parkActivityProfiles.default;
+}
 
-  // Fallback: create entry from search query with generic info
-  // In production, this would call an LLM to enrich the data
+// State-specific info for better descriptions
+const stateSeasons: Record<string, string> = {
+  FL: "October - April (cooler, drier)", Florida: "October - April (cooler, drier)",
+  TX: "March - May, October - November", Texas: "March - May, October - November",
+  CA: "April - October", California: "April - October",
+  CO: "June - September", Colorado: "June - September",
+  NY: "May - October", "New York": "May - October",
+  NC: "April - November", "North Carolina": "April - November",
+  TN: "April - November", Tennessee: "April - November",
+  OR: "June - September", Oregon: "June - September",
+  WA: "July - September", Washington: "July - September",
+  AZ: "October - April", Arizona: "October - April",
+  UT: "April - October", Utah: "April - October",
+  HI: "Year-round", Hawaii: "Year-round",
+};
+
+// AI Discovery: multi-source park discovery
+async function discoverPark(query: string): Promise<ParkEntry | null> {
+  const qLower = query.toLowerCase();
+  const isLikelyStatePark = qLower.includes("state") || (!qLower.includes("national") && !qLower.includes("monument"));
+  const isLikelyNational = qLower.includes("national") || qLower.includes("monument") || qLower.includes("nps");
+
   const id = query.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  
-  // Check if we can determine it's a real place by geocoding
+
+  // Strategy: Try geocoding FIRST (works for all parks), then NPS for nationals
+  // This prevents NPS from returning wrong results for state park queries
+
+  // Step 1: Geocode with Nominatim (works for state parks, national parks, everything)
+  let geoResult: { lat: number; lng: number; state: string; displayName: string } | null = null;
   try {
+    // Search with specific park type for better results
+    const searchQuery = qLower.includes("park") ? query : `${query} park`;
     const geoRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + " park")}&format=json&limit=1`,
-      { headers: { "User-Agent": "TrailPlan/1.0" }, next: { revalidate: 86400 } }
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=3&addressdetails=1`,
+      { headers: { "User-Agent": "TrailPlan/1.0 (contact@trailplan.app)" }, next: { revalidate: 86400 } }
     );
-    
+
     if (geoRes.ok) {
       const geoData = await geoRes.json();
-      if (geoData.length > 0) {
-        const geo = geoData[0];
-        const isStatePark = query.toLowerCase().includes("state");
-        
-        const entry: ParkEntry = {
-          id,
-          name: query.replace(/ state park| national park| park/gi, "").trim(),
-          fullName: query,
-          type: isStatePark ? "state_park"
-            : query.toLowerCase().includes("national") ? "national_park"
-            : "state_park",
-          state: geo.display_name?.split(",").slice(-2, -1)[0]?.trim() || "Unknown",
-          description: `${query} — discovered and added by TrailPlan AI. Help us improve this listing by contributing trail info and tips!`,
-          coordinates: {
-            lat: parseFloat(geo.lat),
-            lng: parseFloat(geo.lon),
-          },
-          activities: ["hiking", "sightseeing", "camping"],
-          bestSeason: "Check local listings for seasonal info",
-          addedBy: "ai_discovery",
-          addedAt: new Date().toISOString().split("T")[0],
-        };
+      // Find the best match — prefer results that include "park" in the type or class
+      const parkResult = geoData.find((r: any) =>
+        r.type === "park" || r.type === "nature_reserve" || r.type === "national_park" ||
+        r.class === "leisure" || r.class === "boundary" ||
+        r.display_name?.toLowerCase().includes("park")
+      ) || geoData[0];
 
-        parkDatabase.set(id, entry);
-        return entry;
+      if (parkResult) {
+        const stateParts = parkResult.display_name?.split(",") || [];
+        const stateGuess = parkResult.address?.state || stateParts.slice(-2, -1)[0]?.trim() || "Unknown";
+        geoResult = {
+          lat: parseFloat(parkResult.lat),
+          lng: parseFloat(parkResult.lon),
+          state: stateGuess,
+          displayName: parkResult.display_name || "",
+        };
       }
     }
-  } catch (e) {
-    // Geocoding failed
+  } catch {}
+
+  // Step 2: If it looks like a national park, also try NPS API for richer data
+  if (isLikelyNational) {
+    try {
+      const npsRes = await fetch(
+        `https://developer.nps.gov/api/v1/parks?q=${encodeURIComponent(query)}&limit=3&api_key=DEMO_KEY`,
+        { next: { revalidate: 86400 } }
+      );
+
+      if (npsRes.ok) {
+        const npsData = await npsRes.json();
+        if (npsData.data && npsData.data.length > 0) {
+          // Check that the NPS result actually matches our query
+          const park = npsData.data.find((p: any) => {
+            const pName = (p.fullName || p.name || "").toLowerCase();
+            const queryWords = qLower.replace(/national|park|state|monument/g, "").trim().split(/\s+/);
+            return queryWords.some((w: string) => w.length > 2 && pName.includes(w));
+          });
+
+          if (park) {
+            const entry: ParkEntry = {
+              id: park.parkCode || id,
+              name: park.name?.replace(/ National Park| State Park| National Forest/g, "") || query,
+              fullName: park.fullName || query,
+              type: park.designation?.toLowerCase().includes("national park") ? "national_park"
+                : park.designation?.toLowerCase().includes("monument") ? "monument"
+                : park.designation?.toLowerCase().includes("forest") ? "national_forest"
+                : "recreation_area",
+              state: park.states || geoResult?.state || "Unknown",
+              description: park.description || `${query} — discovered by TrailPlan AI.`,
+              coordinates: geoResult || {
+                lat: parseFloat(park.latitude) || 0,
+                lng: parseFloat(park.longitude) || 0,
+              },
+              website: park.url || undefined,
+              image: park.images?.[0]?.url || undefined,
+              activities: (park.activities || []).map((a: any) => a.name?.toLowerCase()).filter(Boolean).slice(0, 8),
+              bestSeason: stateSeasons[park.states] || "Check park website for seasonal info",
+              addedBy: "ai_discovery",
+              addedAt: new Date().toISOString().split("T")[0],
+            };
+
+            parkDatabase.set(entry.id, entry);
+            return entry;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Step 3: Build entry from geocoding result + AI-enriched data
+  if (geoResult) {
+    const profile = getActivityProfile(query);
+    const cleanName = query.replace(/ state park| national park| park/gi, "").trim();
+    const fullName = qLower.includes("park") ? query
+      : qLower.includes("state") ? `${query} Park`
+      : query;
+
+    const parkType: ParkEntry["type"] = qLower.includes("state") ? "state_park"
+      : qLower.includes("national forest") ? "national_forest"
+      : qLower.includes("national") ? "national_park"
+      : qLower.includes("monument") ? "monument"
+      : "state_park";
+
+    const stateBestSeason = stateSeasons[geoResult.state] || profile.bestSeason;
+
+    const entry: ParkEntry = {
+      id,
+      name: cleanName,
+      fullName,
+      type: parkType,
+      state: geoResult.state,
+      description: `${fullName} in ${geoResult.state}. ${profile.description} Discovered and added by TrailPlan AI — community contributions welcome!`,
+      coordinates: { lat: geoResult.lat, lng: geoResult.lng },
+      activities: profile.activities,
+      bestSeason: stateBestSeason,
+      addedBy: "ai_discovery",
+      addedAt: new Date().toISOString().split("T")[0],
+    };
+
+    parkDatabase.set(id, entry);
+    return entry;
   }
 
   return null;
