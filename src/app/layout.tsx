@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "TrailPlan — Plan Your Perfect Outdoor Adventure",
@@ -11,8 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="antialiased min-h-screen w-full overflow-x-hidden">
-        <Navbar />
-        <main className="w-full">{children}</main>
+        <Providers>
+          <Navbar />
+          <main className="w-full">{children}</main>
+        </Providers>
       </body>
     </html>
   );

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Mountain, Compass, Map, PlusCircle, User, Menu, X, Users } from "lucide-react";
+import { Mountain, Compass, Map, PlusCircle, User, Menu, X, Users, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, profile, signOut } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-cream-dark w-full">
@@ -51,9 +53,26 @@ export default function Navbar() {
               <PlusCircle className="w-4 h-4" />
               Create Trip
             </Link>
-            <Link href="/profile" className="ml-4 w-9 h-9 rounded-full bg-sunset/10 flex items-center justify-center hover:bg-sunset/20 transition-colors">
-              <User className="w-5 h-5 text-sunset" />
-            </Link>
+
+            {/* Auth Button */}
+            {user ? (
+              <div className="ml-4 flex items-center gap-2">
+                <Link href="/profile" className="w-9 h-9 rounded-full bg-forest/10 flex items-center justify-center hover:bg-forest/20 transition-colors" title={profile?.display_name || "Profile"}>
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-forest">
+                      {(profile?.display_name || profile?.email || "U")[0].toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            ) : (
+              <Link href="/profile" className="ml-4 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sunset/10 text-sunset hover:bg-sunset/20 transition-all font-medium text-sm">
+                <User className="w-4 h-4" />
+                Sign In
+              </Link>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -70,38 +89,40 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="md:hidden border-t border-cream-dark bg-white/95 backdrop-blur-lg">
           <div className="px-4 py-3 space-y-1">
-            <Link
-              href="/explore"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all"
-            >
-              <Compass className="w-5 h-5" />
-              Explore
+            <Link href="/explore" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all">
+              <Compass className="w-5 h-5" /> Explore
             </Link>
-            <Link
-              href="/community"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all"
-            >
-              <Users className="w-5 h-5" />
-              Community
+            <Link href="/community" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all">
+              <Users className="w-5 h-5" /> Community
             </Link>
-            <Link
-              href="/my-trips"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all"
-            >
-              <Map className="w-5 h-5" />
-              My Trips
+            <Link href="/my-trips" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all">
+              <Map className="w-5 h-5" /> My Trips
             </Link>
-            <Link
-              href="/trip/new"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-forest text-white"
-            >
-              <PlusCircle className="w-5 h-5" />
-              Create Trip
+            <Link href="/trip/new" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-forest text-white">
+              <PlusCircle className="w-5 h-5" /> Create Trip
             </Link>
+            <hr className="border-cream-dark my-2" />
+            {user ? (
+              <>
+                <Link href="/profile" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-night/70 hover:bg-forest/5 transition-all">
+                  <User className="w-5 h-5" />
+                  <div>
+                    <div className="font-medium">{profile?.display_name || "Profile"}</div>
+                    <div className="text-xs text-night/40">{profile?.email}</div>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => { signOut(); setMobileOpen(false); }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-all w-full text-left"
+                >
+                  <LogOut className="w-5 h-5" /> Sign Out
+                </button>
+              </>
+            ) : (
+              <Link href="/profile" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sunset hover:bg-sunset/5 transition-all">
+                <User className="w-5 h-5" /> Sign In / Sign Up
+              </Link>
+            )}
           </div>
         </div>
       )}

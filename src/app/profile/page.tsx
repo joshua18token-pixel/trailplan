@@ -3,192 +3,278 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  User, Mail, MapPin, Calendar, Settings, LogOut, Crown,
-  ChevronRight, Shield, Eye, Mountain, Gift, Star, Map,
+  User, Mail, Lock, Eye, EyeOff, LogOut, MapPin, Calendar,
+  Star, Settings, ChevronRight, Mountain, Shield, Edit3,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function ProfilePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, profile, loading, signUp, signIn, signOut, updateProfile } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Editing profile
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoggedIn(true);
+    setError("");
+    setSuccess("");
+    setSubmitting(true);
+
+    if (mode === "signup") {
+      if (!name.trim()) { setError("Please enter your name"); setSubmitting(false); return; }
+      if (password.length < 6) { setError("Password must be at least 6 characters"); setSubmitting(false); return; }
+      const result = await signUp(email, password, name);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess("Account created! Check your email to confirm, then sign in.");
+      }
+    } else {
+      const result = await signIn(email, password);
+      if (result.error) {
+        setError(result.error);
+      }
+    }
+    setSubmitting(false);
   };
 
-  // Logged-in view
-  if (isLoggedIn) {
+  const handleUpdateName = async () => {
+    if (!newName.trim()) return;
+    const result = await updateProfile({ display_name: newName.trim() });
+    if (!result.error) {
+      setEditingName(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-3 border-forest border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // ====== LOGGED IN VIEW ======
+  if (user && profile) {
     return (
       <div className="min-h-screen bg-cream">
-        <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <div className="max-w-2xl mx-auto px-4 py-10">
           {/* Profile Header */}
-          <div className="bg-white rounded-2xl border border-cream-dark overflow-hidden">
-            <div className="bg-gradient-to-r from-forest to-forest-light h-32 sm:h-40 relative">
-              <div className="absolute -bottom-10 left-6">
-                <div className="w-20 h-20 rounded-2xl bg-white border-4 border-white shadow-lg flex items-center justify-center">
-                  <User className="w-10 h-10 text-forest" />
-                </div>
+          <div className="bg-white rounded-2xl p-6 shadow-md mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-forest/10 flex items-center justify-center">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-forest">
+                    {(profile.display_name || profile.email || "U")[0].toUpperCase()}
+                  </span>
+                )}
               </div>
-            </div>
-            <div className="pt-14 pb-6 px-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-xl font-bold text-night">{name || "Adventurer"}</h1>
-                  <p className="text-sm text-night/50 mt-0.5">{email || "adventurer@trailplan.app"}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-night/40">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Joined March 2026</span>
-                    <span className="flex items-center gap-1"><Map className="w-3 h-3" />3 trips</span>
-                    <span className="flex items-center gap-1"><Star className="w-3 h-3" />2 shared</span>
+              <div className="flex-1">
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest"
+                      placeholder="Your name"
+                      autoFocus
+                    />
+                    <button onClick={handleUpdateName} className="text-xs px-3 py-1.5 rounded-lg bg-forest text-white">Save</button>
+                    <button onClick={() => setEditingName(false)} className="text-xs px-3 py-1.5 rounded-lg bg-gray-100">Cancel</button>
                   </div>
-                </div>
-                <button className="px-4 py-2 rounded-xl border border-cream-dark text-sm font-medium text-night/60 hover:bg-cream transition-colors flex items-center gap-2">
-                  <Settings className="w-4 h-4" /> Settings
-                </button>
+                ) : (
+                  <h1 className="text-xl font-bold text-night flex items-center gap-2">
+                    {profile.display_name || "Trail Explorer"}
+                    <button onClick={() => { setNewName(profile.display_name || ""); setEditingName(true); }} className="p-1 rounded-lg hover:bg-gray-100">
+                      <Edit3 className="w-3.5 h-3.5 text-night/30" />
+                    </button>
+                  </h1>
+                )}
+                <p className="text-sm text-night/50">{profile.email}</p>
               </div>
             </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="grid sm:grid-cols-3 gap-4 mt-6">
-            <Link href="/my-trips" className="bg-white rounded-2xl border border-cream-dark p-5 hover:shadow-md transition-all group">
-              <Map className="w-8 h-8 text-forest mb-3" />
-              <h3 className="font-bold text-night group-hover:text-forest transition-colors">My Trips</h3>
-              <p className="text-xs text-night/50 mt-1">View and manage your saved trips</p>
-              <span className="text-xs text-forest mt-3 flex items-center gap-1">3 trips <ChevronRight className="w-3 h-3" /></span>
-            </Link>
-            <Link href="/community" className="bg-white rounded-2xl border border-cream-dark p-5 hover:shadow-md transition-all group">
-              <Eye className="w-8 h-8 text-lake mb-3" />
-              <h3 className="font-bold text-night group-hover:text-lake transition-colors">Shared Trips</h3>
-              <p className="text-xs text-night/50 mt-1">Trips you&apos;ve shared with the community</p>
-              <span className="text-xs text-lake mt-3 flex items-center gap-1">2 shared <ChevronRight className="w-3 h-3" /></span>
-            </Link>
-            <Link href="/trip/new" className="bg-white rounded-2xl border border-cream-dark p-5 hover:shadow-md transition-all group">
-              <Mountain className="w-8 h-8 text-sunset mb-3" />
-              <h3 className="font-bold text-night group-hover:text-sunset transition-colors">New Trip</h3>
-              <p className="text-xs text-night/50 mt-1">Plan your next adventure</p>
-              <span className="text-xs text-sunset mt-3 flex items-center gap-1">Create trip <ChevronRight className="w-3 h-3" /></span>
-            </Link>
-          </div>
-
-          {/* Plan Info */}
-          <div className="mt-6 bg-white rounded-2xl border border-cream-dark p-6">
-            <div className="flex items-center justify-between">
+            {/* Plan Badge */}
+            <div className="mt-4 p-3 rounded-xl bg-cream flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-night flex items-center gap-2">
-                  <Gift className="w-5 h-5 text-forest" /> Free Plan
-                </h3>
-                <p className="text-sm text-night/50 mt-1">3 of 5 free trips used</p>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${profile.plan === "pro" ? "bg-sunset text-white" : "bg-forest/10 text-forest"}`}>
+                  {profile.plan === "pro" ? "⭐ PRO" : "FREE"}
+                </span>
+                <span className="text-sm text-night/50 ml-2">
+                  {profile.plan === "pro" ? "Unlimited trips & features" : `${profile.trip_count}/5 free trips used`}
+                </span>
               </div>
-              <button className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sunset to-sunset-light text-white font-medium text-sm hover:shadow-lg transition-all flex items-center gap-2">
-                <Crown className="w-4 h-4" /> Upgrade to Pro — $20/yr
-              </button>
+              {profile.plan !== "pro" && (
+                <button className="text-xs px-3 py-1.5 rounded-lg bg-sunset text-white font-medium hover:bg-sunset-light transition-colors">
+                  Upgrade to Pro
+                </button>
+              )}
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-xl bg-cream">
-                <h4 className="text-xs font-semibold text-night/50">FREE</h4>
-                <ul className="mt-2 space-y-1.5 text-xs text-night/60">
-                  <li>✓ Up to 5 trips</li>
-                  <li>✓ Full itinerary builder</li>
-                  <li>✓ Share with community</li>
-                  <li>✗ Ads displayed</li>
-                </ul>
+          </div>
+
+          {/* Quick Links */}
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-6">
+            <Link href="/my-trips" className="flex items-center justify-between p-4 hover:bg-cream transition-colors border-b border-cream-dark">
+              <div className="flex items-center gap-3">
+                <MapPin className="w-5 h-5 text-forest" />
+                <span className="font-medium text-night">My Trips</span>
               </div>
-              <div className="p-3 rounded-xl bg-sunset/5 border border-sunset/20">
-                <h4 className="text-xs font-semibold text-sunset flex items-center gap-1"><Crown className="w-3 h-3" /> PRO — $20/yr</h4>
-                <ul className="mt-2 space-y-1.5 text-xs text-night/60">
-                  <li>✓ <strong>Unlimited</strong> trips</li>
-                  <li>✓ <strong>Ad-free</strong></li>
-                  <li>✓ Offline access</li>
-                  <li>✓ Gear checklists</li>
-                </ul>
+              <ChevronRight className="w-4 h-4 text-night/30" />
+            </Link>
+            <Link href="/trip/new" className="flex items-center justify-between p-4 hover:bg-cream transition-colors border-b border-cream-dark">
+              <div className="flex items-center gap-3">
+                <Mountain className="w-5 h-5 text-sunset" />
+                <span className="font-medium text-night">Plan New Trip</span>
               </div>
-            </div>
+              <ChevronRight className="w-4 h-4 text-night/30" />
+            </Link>
+            <Link href="/community" className="flex items-center justify-between p-4 hover:bg-cream transition-colors border-b border-cream-dark">
+              <div className="flex items-center gap-3">
+                <Star className="w-5 h-5 text-gold" />
+                <span className="font-medium text-night">Community Trips</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-night/30" />
+            </Link>
+            <Link href="/explore" className="flex items-center justify-between p-4 hover:bg-cream transition-colors">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-lake" />
+                <span className="font-medium text-night">Explore Parks</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-night/30" />
+            </Link>
           </div>
 
           {/* Sign Out */}
           <button
-            onClick={() => setIsLoggedIn(false)}
-            className="mt-6 flex items-center gap-2 text-sm text-night/40 hover:text-red-500 transition-colors"
+            onClick={signOut}
+            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition-colors"
           >
-            <LogOut className="w-4 h-4" /> Sign Out
+            <LogOut className="w-4 h-4" />
+            Sign Out
           </button>
         </div>
       </div>
     );
   }
 
-  // Not logged in — sign up / sign in
+  // ====== AUTH FORM (NOT LOGGED IN) ======
   return (
-    <div className="min-h-screen bg-cream flex items-center justify-center py-10 px-3">
+    <div className="min-h-screen bg-cream flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-forest to-forest-light p-8 text-white text-center">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-4">
-              {mode === "signup" ? <Gift className="w-8 h-8" /> : <Shield className="w-8 h-8" />}
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-forest/10 flex items-center justify-center mx-auto mb-4">
+            <Mountain className="w-8 h-8 text-forest" />
+          </div>
+          <h1 className="text-2xl font-bold text-night">
+            {mode === "signup" ? "Join TrailPlan" : "Welcome Back"}
+          </h1>
+          <p className="text-sm text-night/50 mt-1">
+            {mode === "signup" ? "Start planning your perfect outdoor adventures" : "Sign in to access your trips"}
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="bg-white rounded-2xl p-6 shadow-md">
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>
+          )}
+          {success && (
+            <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-600 text-sm">{success}</div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "signup" && (
+              <div>
+                <label className="block text-sm font-medium text-night/70 mb-1">Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-night/30" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:bg-white transition-all"
+                    placeholder="Your name"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-night/70 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-night/30" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:bg-white transition-all"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
             </div>
-            <h1 className="text-2xl font-bold">{mode === "signup" ? "Join TrailPlan" : "Welcome Back"}</h1>
-            <p className="text-white/80 text-sm mt-1">
-              {mode === "signup" ? "Create a free account to save your trips" : "Sign in to access your adventures"}
+
+            <div>
+              <label className="block text-sm font-medium text-night/70 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-night/30" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:bg-white transition-all"
+                  placeholder={mode === "signup" ? "At least 6 characters" : "Your password"}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-gray-200"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4 text-night/30" /> : <Eye className="w-4 h-4 text-night/30" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-3 rounded-xl bg-forest text-white font-semibold text-sm hover:bg-forest-light transition-colors disabled:opacity-50"
+            >
+              {submitting ? "..." : mode === "signup" ? "Create Account" : "Sign In"}
+            </button>
+          </form>
+
+          <div className="mt-4 text-center">
+            <p className="text-sm text-night/40">
+              {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
+              <button
+                onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setError(""); setSuccess(""); }}
+                className="text-forest font-medium ml-1 hover:underline"
+              >
+                {mode === "signup" ? "Sign In" : "Sign Up"}
+              </button>
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {mode === "signup" && (
-              <div>
-                <label className="text-xs font-medium text-night/60 mb-1 block">Full Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:border-forest"
-                  placeholder="Your name"
-                />
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-medium text-night/60 mb-1 block">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:border-forest"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-night/60 mb-1 block">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest focus:border-forest"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button type="submit" className="w-full py-3 rounded-xl bg-forest text-white font-medium hover:bg-forest-light transition-colors shadow-md">
-              {mode === "signup" ? "Create Free Account" : "Sign In"}
-            </button>
-
-            {mode === "signup" && (
-              <div className="text-center">
-                <p className="text-xs text-night/40 mt-2">✨ Get 5 free trips — no credit card required</p>
-              </div>
-            )}
-          </form>
-
-          <div className="px-6 pb-6 text-center">
-            <button
-              onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-              className="text-sm text-forest hover:underline"
-            >
-              {mode === "signup" ? "Already have an account? Sign in" : "Don't have an account? Sign up free"}
-            </button>
-          </div>
+          {mode === "signup" && (
+            <p className="mt-4 text-center text-xs text-night/30">
+              ✨ Get 5 free trips — no credit card required
+            </p>
+          )}
         </div>
       </div>
     </div>
