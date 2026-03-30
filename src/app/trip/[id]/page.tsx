@@ -1367,13 +1367,20 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
               <div className="space-y-3">
                 {days.filter((d) => d.lodging && d.lodging !== "Departure").map((d) => {
                   const matched = lodgingOptions.find((l) => l.name === d.lodging);
+                  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent((d.lodging || "") + " booking reservations")}`;
                   return (
-                    <div key={d.day} className="flex items-start gap-3 p-3 rounded-lg bg-cream">
+                    <a
+                      key={d.day}
+                      href={searchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 p-3 rounded-lg bg-cream hover:bg-cream-dark hover:shadow-sm transition-all cursor-pointer group block"
+                    >
                       <div className="w-8 h-8 rounded-lg bg-lake/10 text-lake flex items-center justify-center text-sm font-bold">
                         D{d.day}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-night">{d.lodging}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-night group-hover:text-lake transition-colors">{d.lodging}</p>
                         <p className="text-xs text-night/50">{d.date}</p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-night/40">
                           {d.lodgingDepartTime && <span>🌅 Out by {d.lodgingDepartTime}</span>}
@@ -1381,7 +1388,8 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                         </div>
                         {matched && <p className="text-xs text-forest mt-1">{matched.priceRange}</p>}
                       </div>
-                    </div>
+                      <span className="text-xs text-lake/50 group-hover:text-lake transition-colors mt-1">Book →</span>
+                    </a>
                   );
                 })}
               </div>
