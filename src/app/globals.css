@@ -25,15 +25,10 @@
   --color-gold: #D4A843;
 }
 
-html {
-  overflow-x: clip;
-}
-
 body {
   font-family: 'Inter', sans-serif;
   background-color: var(--warm-cream);
   color: var(--night-sky);
-  overflow-x: clip;
   width: 100%;
   min-height: 100vh;
 }
