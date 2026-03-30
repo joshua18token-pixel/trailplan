@@ -1304,6 +1304,47 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
               />
             )}
 
+            {/* Distance warning for multi-park trips */}
+            {isGenerated && generatedTrip?.parks?.length > 1 && (() => {
+              const calcMiles = (a: {lat:number;lng:number}, b: {lat:number;lng:number}) => {
+                const R = 3959;
+                const dLat = (b.lat - a.lat) * Math.PI / 180;
+                const dLng = (b.lng - a.lng) * Math.PI / 180;
+                const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+                return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+              };
+              const parks = generatedTrip.parks;
+              const warnings: {from: string; to: string; miles: number}[] = [];
+              for (let i = 0; i < parks.length; i++) {
+                for (let j = i+1; j < parks.length; j++) {
+                  if (parks[i].coordinates && parks[j].coordinates) {
+                    const miles = Math.round(calcMiles(parks[i].coordinates, parks[j].coordinates));
+                    if (miles > 200) {
+                      warnings.push({ from: parks[i].fullName || parks[i].name, to: parks[j].fullName || parks[j].name, miles });
+                    }
+                  }
+                }
+              }
+              if (warnings.length === 0) return null;
+              return (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 mb-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">⚠️</span>
+                    <div>
+                      <p className="text-sm font-semibold text-red-700">Long Distance Alert</p>
+                      {warnings.map((w, i) => (
+                        <p key={i} className="text-xs text-red-600 mt-1">
+                          <strong>{w.from}</strong> → <strong>{w.to}</strong>: <strong>{w.miles.toLocaleString()} miles apart</strong>
+                          {w.miles > 500 ? " — requires a flight or a full day driving" : " — several hours of driving"}
+                        </p>
+                      ))}
+                      <p className="text-xs text-red-500 mt-2">💡 Make sure you&apos;ve planned enough travel time between parks, or consider splitting into separate trips.</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="space-y-4">
               {days.map((day, i) => (
                 <DayCard
