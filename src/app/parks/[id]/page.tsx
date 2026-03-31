@@ -163,13 +163,15 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
         cover_image: "",
       },
     ]);
+  }, [id]);
 
-    // Load comments and photos
-    if (park) {
+  // Load comments and photos once when park is loaded
+  useEffect(() => {
+    if (park?.id) {
       loadComments();
       loadPhotos();
     }
-  }, [id, park]);
+  }, [park?.id]);
 
   async function loadComments() {
     try {
