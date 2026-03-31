@@ -1,12 +1,13 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
 import {
   ArrowLeft, MapPin, Calendar, Mountain, TreePine, Star,
   ChevronRight, ThumbsUp, Users, Clock, ExternalLink,
-  Globe, DollarSign, Navigation, Loader2,
+  Globe, DollarSign, Navigation, Loader2, Send, ImageIcon, X,
 } from "lucide-react";
 
 interface ParkData {
@@ -32,6 +33,30 @@ interface CommunityTrip {
   vote_count: number;
   tags: string[];
   cover_image: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  photo_url?: string;
+  pinned: boolean;
+  like_count: number;
+  created_at: string;
+  profiles: {
+    display_name: string;
+    avatar_url?: string;
+  };
+}
+
+interface Photo {
+  id: string;
+  photo_url: string;
+  caption?: string;
+  created_at: string;
+  profiles: {
+    display_name: string;
+    avatar_url?: string;
+  };
 }
 
 const activityEmoji: Record<string, string> = {
@@ -60,10 +85,23 @@ const typeBadgeColors: Record<string, string> = {
 
 export default function ParkDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { user } = useAuth();
   const [park, setPark] = useState<ParkData | null>(null);
   const [loading, setLoading] = useState(true);
   const [communityTrips, setCommunityTrips] = useState<CommunityTrip[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "photos" | "discussion" | "trips">("overview");
+  
+  // Discussion state
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentPhoto, setCommentPhoto] = useState<File | null>(null);
+  const [posting, setPosting] = useState(false);
+  
+  // Photo gallery state
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const commentPhotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadPark() {
@@ -125,7 +163,97 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
         cover_image: "",
       },
     ]);
-  }, [id]);
+
+    // Load comments and photos
+    if (park) {
+      loadComments();
+      loadPhotos();
+    }
+  }, [id, park]);
+
+  async function loadComments() {
+    try {
+      const res = await fetch(`/api/parks/${id}/comments`);
+      const data = await res.json();
+      setComments(data.comments || []);
+    } catch {}
+  }
+
+  async function loadPhotos() {
+    try {
+      const res = await fetch(`/api/parks/${id}/photos`);
+      const data = await res.json();
+      setPhotos(data.photos || []);
+    } catch {}
+  }
+
+  async function handlePostComment() {
+    if (!newComment.trim() || !user || posting) return;
+    
+    setPosting(true);
+    try {
+      let photoUrl = null;
+      
+      // Upload photo if attached
+      if (commentPhoto) {
+        const formData = new FormData();
+        formData.append("file", commentPhoto);
+        const uploadRes = await fetch(`/api/parks/${id}/photos`, {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        photoUrl = uploadData.photo?.photo_url;
+      }
+
+      // Post comment
+      const res = await fetch(`/api/parks/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newComment, photo_url: photoUrl }),
+      });
+
+      if (res.ok) {
+        setNewComment("");
+        setCommentPhoto(null);
+        loadComments();
+        if (photoUrl) loadPhotos();
+      }
+    } catch {}
+    setPosting(false);
+  }
+
+  async function handleUploadPhoto(file: File, caption?: string) {
+    if (!user || uploadingPhoto) return;
+    
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (caption) formData.append("caption", caption);
+
+      const res = await fetch(`/api/parks/${id}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        loadPhotos();
+      }
+    } catch {}
+    setUploadingPhoto(false);
+  }
+
+  async function handleLikeComment(commentId: string) {
+    if (!user) return;
+    
+    try {
+      await fetch(`/api/parks/comments/${commentId}/like`, {
+        method: "POST",
+      });
+      loadComments();
+    } catch {}
+  }
 
   if (loading) {
     return (
@@ -302,68 +430,160 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-lg font-bold text-night">Photo Gallery</h2>
-                  <button className="px-4 py-2 rounded-lg bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors">
-                    + Add Photos
-                  </button>
+                  {user ? (
+                    <>
+                      <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadPhoto(file);
+                        }}
+                      />
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="px-4 py-2 rounded-lg bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        {uploadingPhoto ? "Uploading..." : "+ Add Photos"}
+                      </button>
+                    </>
+                  ) : (
+                    <Link href="/profile" className="px-4 py-2 rounded-lg bg-gray-100 text-night/50 text-sm font-medium">
+                      Sign in to upload
+                    </Link>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-                    <div key={i} className="aspect-square rounded-xl bg-cream hover:opacity-80 transition-opacity cursor-pointer overflow-hidden">
-                      <div className="w-full h-full bg-gradient-to-br from-forest/20 to-lake/20 flex items-center justify-center text-night/20 text-xs font-medium">
-                        Photo {i}
+                {photos.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {photos.map((photo) => (
+                      <div key={photo.id} className="aspect-square rounded-xl bg-cream hover:opacity-90 transition-opacity cursor-pointer overflow-hidden group relative">
+                        <img src={photo.photo_url} alt={photo.caption || "Park photo"} className="w-full h-full object-cover" />
+                        {photo.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {photo.caption}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-center text-night/40 text-sm mt-6">Mock photos - upload feature coming soon</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-night/30">
+                    <ImageIcon className="w-16 h-16 mx-auto mb-3 text-night/10" />
+                    <p className="text-sm">No photos yet. Be the first to share!</p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Discussion Tab */}
             {activeTab === "discussion" && (
               <div className="space-y-4">
-                <div className="bg-white rounded-2xl p-6 shadow-sm">
-                  <h2 className="text-lg font-bold text-night mb-4">Start a Discussion</h2>
-                  <textarea 
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-forest resize-none"
-                    rows={3}
-                    placeholder="Share your experience, ask questions, or give tips..."
-                  />
-                  <button className="mt-3 px-6 py-2 rounded-lg bg-forest text-white font-medium hover:bg-forest-light transition-colors">
-                    Post
-                  </button>
-                </div>
+                {user && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm">
+                    <h2 className="text-lg font-bold text-night mb-4">Start a Discussion</h2>
+                    <textarea 
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-forest resize-none"
+                      rows={3}
+                      placeholder="Share your experience, ask questions, or give tips..."
+                    />
+                    {commentPhoto && (
+                      <div className="mt-3 relative inline-block">
+                        <img 
+                          src={URL.createObjectURL(commentPhoto)} 
+                          alt="Attachment preview" 
+                          className="h-20 rounded-lg"
+                        />
+                        <button
+                          onClick={() => setCommentPhoto(null)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 mt-3">
+                      <input 
+                        ref={commentPhotoInputRef}
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setCommentPhoto(file);
+                        }}
+                      />
+                      <button
+                        onClick={() => commentPhotoInputRef.current?.click()}
+                        className="px-4 py-2 rounded-lg bg-gray-100 text-night/60 font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        Add Photo
+                      </button>
+                      <button 
+                        onClick={handlePostComment}
+                        disabled={!newComment.trim() || posting}
+                        className="px-6 py-2 rounded-lg bg-forest text-white font-medium hover:bg-forest-light transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <Send className="w-4 h-4" />
+                        {posting ? "Posting..." : "Post"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                {/* Mock Discussion Posts */}
-                {[
-                  { author: "TrailBlazer_Mike", time: "2 hours ago", pinned: true, text: "Pro tip: Start the Half Dome hike before sunrise to beat the crowds and catch amazing golden hour photos at the cables!" },
-                  { author: "OutdoorMom_Sarah", time: "1 day ago", pinned: false, text: "Just got back from a 4-day trip with my family. The Valley View trail is perfect for kids! Minimal elevation gain and stunning views." },
-                  { author: "NatureLens_Pro", time: "3 days ago", pinned: false, text: "Anyone know if the Tuolumne Meadows road is open yet? Planning to visit next week." },
-                ].map((post, i) => (
-                  <div key={i} className={`bg-white rounded-2xl p-6 shadow-sm ${post.pinned ? "border-2 border-sunset" : ""}`}>
-                    {post.pinned && (
+                {!user && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+                    <p className="text-night/60 mb-4">Sign in to join the discussion</p>
+                    <Link href="/profile" className="inline-block px-6 py-2 rounded-lg bg-forest text-white font-medium hover:bg-forest-light transition-colors">
+                      Sign In
+                    </Link>
+                  </div>
+                )}
+
+                {/* Discussion Posts */}
+                {comments.length > 0 ? comments.map((comment) => (
+                  <div key={comment.id} className={`bg-white rounded-2xl p-6 shadow-sm ${comment.pinned ? "border-2 border-sunset" : ""}`}>
+                    {comment.pinned && (
                       <div className="flex items-center gap-1.5 text-sunset text-xs font-bold mb-2">
                         <span className="text-lg">📌</span> PINNED BY MODERATOR
                       </div>
                     )}
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full bg-forest/10 flex items-center justify-center text-forest font-bold flex-shrink-0">
-                        {post.author[0]}
+                        {comment.profiles.display_name[0].toUpperCase()}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-night">{post.author}</span>
-                          <span className="text-xs text-night/40">{post.time}</span>
+                          <span className="font-semibold text-night">{comment.profiles.display_name}</span>
+                          <span className="text-xs text-night/40">{new Date(comment.created_at).toLocaleDateString()}</span>
                         </div>
-                        <p className="text-night/70 mt-2">{post.text}</p>
+                        <p className="text-night/70 mt-2">{comment.content}</p>
+                        {comment.photo_url && (
+                          <img src={comment.photo_url} alt="Comment photo" className="mt-3 max-w-sm rounded-xl" />
+                        )}
                         <div className="flex items-center gap-4 mt-3 text-sm text-night/40">
-                          <button className="hover:text-forest transition-colors">👍 12</button>
-                          <button className="hover:text-forest transition-colors">Reply</button>
+                          <button 
+                            onClick={() => handleLikeComment(comment.id)}
+                            disabled={!user}
+                            className="hover:text-forest transition-colors disabled:opacity-50"
+                          >
+                            👍 {comment.like_count}
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="bg-white rounded-2xl p-12 shadow-sm text-center text-night/30">
+                    <p>No discussions yet. Be the first to share!</p>
+                  </div>
+                )}
               </div>
             )}
 
