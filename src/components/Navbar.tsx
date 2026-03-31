@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Mountain, Compass, Map, PlusCircle, User, Menu, X, Users, LogOut } from "lucide-react";
+import { Mountain, Compass, Map, PlusCircle, User, Menu, X, Users, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -57,6 +57,11 @@ export default function Navbar() {
             {/* Auth Button */}
             {user ? (
               <div className="ml-4 flex items-center gap-2">
+                {profile?.role === "super_admin" && (
+                  <Link href="/admin" className="p-2 rounded-lg bg-gold/10 text-gold hover:bg-gold/20 transition-colors" title="Admin Panel">
+                    <Shield className="w-4 h-4" />
+                  </Link>
+                )}
                 <Link href="/profile" className="w-9 h-9 rounded-full bg-forest/10 flex items-center justify-center hover:bg-forest/20 transition-colors" title={profile?.display_name || "Profile"}>
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />

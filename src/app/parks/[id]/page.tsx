@@ -91,11 +91,16 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
   const [communityTrips, setCommunityTrips] = useState<CommunityTrip[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "photos" | "discussion" | "trips">("overview");
   
+  // User role
+  const [userRole, setUserRole] = useState<string>("user");
+  const isMod = userRole === "moderator" || userRole === "super_admin";
+
   // Discussion state
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentPhoto, setCommentPhoto] = useState<File | null>(null);
   const [posting, setPosting] = useState(false);
+  const heroInputRef = useRef<HTMLInputElement>(null);
   
   // Photo gallery state
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -165,13 +170,27 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     ]);
   }, [id]);
 
-  // Load comments and photos once when park is loaded
+  // Load comments, photos, and user role once when park is loaded
   useEffect(() => {
     if (park?.id) {
       loadComments();
       loadPhotos();
     }
   }, [park?.id]);
+
+  // Load user role
+  useEffect(() => {
+    if (!user) { setUserRole("user"); return; }
+    (async () => {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setUserRole(data?.role || "user");
+    })();
+  }, [user]);
 
   async function loadComments() {
     try {
@@ -280,6 +299,70 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     setUploadingPhoto(false);
   }
 
+  async function handleUploadHero(file: File) {
+    if (!user || !isMod) return;
+    
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`/api/parks/${id}/hero`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPark(prev => prev ? { ...prev, image: data.hero_image } : prev);
+      } else {
+        const err = await res.json();
+        alert("Failed to upload: " + err.error);
+      }
+    } catch {}
+  }
+
+  async function handlePinComment(commentId: string, pinned: boolean) {
+    if (!user || !isMod) return;
+    
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await fetch(`/api/parks/comments/${commentId}/moderate`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ pinned }),
+      });
+      loadComments();
+    } catch {}
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!user || !isMod) return;
+    if (!confirm("Delete this comment?")) return;
+    
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await fetch(`/api/parks/comments/${commentId}/moderate`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      loadComments();
+    } catch {}
+  }
+
   async function handleLikeComment(commentId: string) {
     if (!user) return;
     
@@ -347,6 +430,29 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
           <Mountain className="w-24 h-24 text-white/20" />
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        
+        {/* Moderator: Upload Hero Image */}
+        {isMod && (
+          <div className="absolute top-4 right-4 z-10">
+            <input 
+              ref={heroInputRef}
+              type="file" 
+              accept="image/*" 
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadHero(file);
+              }}
+            />
+            <button
+              onClick={() => heroInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-white text-sm font-medium hover:bg-white/30 transition-colors"
+            >
+              <ImageIcon className="w-4 h-4" /> Change Cover
+            </button>
+          </div>
+        )}
+
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
           <div className="max-w-5xl mx-auto">
             <Link href="/explore" className="flex items-center gap-1.5 text-white/60 text-sm mb-3 hover:text-white transition-colors">
@@ -619,6 +725,22 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
                           >
                             👍 {comment.like_count}
                           </button>
+                          {isMod && (
+                            <>
+                              <button
+                                onClick={() => handlePinComment(comment.id, !comment.pinned)}
+                                className="hover:text-sunset transition-colors"
+                              >
+                                📌 {comment.pinned ? "Unpin" : "Pin"}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="hover:text-red-500 transition-colors"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

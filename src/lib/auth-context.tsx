@@ -11,6 +11,7 @@ interface Profile {
   avatar_url: string | null;
   plan: string;
   trip_count: number;
+  role: string;
 }
 
 interface AuthContextType {
