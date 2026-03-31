@@ -35,9 +35,10 @@ export async function POST(
   const { parkId } = await params;
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    console.error("Auth error:", authError);
+    return NextResponse.json({ error: "Unauthorized", details: authError?.message }, { status: 401 });
   }
 
   const body = await request.json();
