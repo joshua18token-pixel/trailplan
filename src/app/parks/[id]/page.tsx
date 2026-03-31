@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft, MapPin, Calendar, Mountain, TreePine, Star,
@@ -62,6 +63,7 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
   const [park, setPark] = useState<ParkData | null>(null);
   const [loading, setLoading] = useState(true);
   const [communityTrips, setCommunityTrips] = useState<CommunityTrip[]>([]);
+  const [activeTab, setActiveTab] = useState<"overview" | "photos" | "discussion" | "trips">("overview");
 
   useEffect(() => {
     async function loadPark() {
@@ -191,9 +193,41 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+          <div className="flex border-b border-gray-100">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`flex-1 py-4 px-6 font-medium transition-colors ${activeTab === "overview" ? "text-forest border-b-2 border-forest bg-forest/5" : "text-night/40 hover:text-night/60"}`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab("photos")}
+              className={`flex-1 py-4 px-6 font-medium transition-colors ${activeTab === "photos" ? "text-forest border-b-2 border-forest bg-forest/5" : "text-night/40 hover:text-night/60"}`}
+            >
+              Photos
+            </button>
+            <button
+              onClick={() => setActiveTab("discussion")}
+              className={`flex-1 py-4 px-6 font-medium transition-colors ${activeTab === "discussion" ? "text-forest border-b-2 border-forest bg-forest/5" : "text-night/40 hover:text-night/60"}`}
+            >
+              Discussion
+            </button>
+            <button
+              onClick={() => setActiveTab("trips")}
+              className={`flex-1 py-4 px-6 font-medium transition-colors ${activeTab === "trips" ? "text-forest border-b-2 border-forest bg-forest/5" : "text-night/40 hover:text-night/60"}`}
+            >
+              Community Trips
+            </button>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
+            {activeTab === "overview" && (
+              <>
             {/* Description */}
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="text-lg font-bold text-night mb-3">About the Park</h2>
@@ -260,49 +294,124 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
 
-            {/* Community Trips */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-night flex items-center gap-2">
-                  <Users className="w-5 h-5 text-sunset" /> Community Trips
-                </h2>
-                <Link href="/community" className="text-sm text-forest hover:underline">View all →</Link>
+              </>
+            )}
+
+            {/* Photos Tab */}
+            {activeTab === "photos" && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold text-night">Photo Gallery</h2>
+                  <button className="px-4 py-2 rounded-lg bg-forest text-white text-sm font-medium hover:bg-forest-light transition-colors">
+                    + Add Photos
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                    <div key={i} className="aspect-square rounded-xl bg-cream hover:opacity-80 transition-opacity cursor-pointer overflow-hidden">
+                      <div className="w-full h-full bg-gradient-to-br from-forest/20 to-lake/20 flex items-center justify-center text-night/20 text-xs font-medium">
+                        Photo {i}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-night/40 text-sm mt-6">Mock photos - upload feature coming soon</p>
               </div>
-              <div className="space-y-3">
-                {communityTrips.sort((a, b) => b.vote_count - a.vote_count).map((trip, i) => (
-                  <div key={trip.id} className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-cream-dark">
-                    <div className="flex items-start gap-4">
-                      {/* Rank + Votes */}
-                      <div className="flex flex-col items-center gap-1 min-w-[48px]">
-                        <span className="text-xs font-bold text-night/30">#{i + 1}</span>
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-forest/10 text-forest">
-                          <ThumbsUp className="w-3 h-3" />
-                          <span className="text-xs font-bold">{trip.vote_count}</span>
+            )}
+
+            {/* Discussion Tab */}
+            {activeTab === "discussion" && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-lg font-bold text-night mb-4">Start a Discussion</h2>
+                  <textarea 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-forest resize-none"
+                    rows={3}
+                    placeholder="Share your experience, ask questions, or give tips..."
+                  />
+                  <button className="mt-3 px-6 py-2 rounded-lg bg-forest text-white font-medium hover:bg-forest-light transition-colors">
+                    Post
+                  </button>
+                </div>
+
+                {/* Mock Discussion Posts */}
+                {[
+                  { author: "TrailBlazer_Mike", time: "2 hours ago", pinned: true, text: "Pro tip: Start the Half Dome hike before sunrise to beat the crowds and catch amazing golden hour photos at the cables!" },
+                  { author: "OutdoorMom_Sarah", time: "1 day ago", pinned: false, text: "Just got back from a 4-day trip with my family. The Valley View trail is perfect for kids! Minimal elevation gain and stunning views." },
+                  { author: "NatureLens_Pro", time: "3 days ago", pinned: false, text: "Anyone know if the Tuolumne Meadows road is open yet? Planning to visit next week." },
+                ].map((post, i) => (
+                  <div key={i} className={`bg-white rounded-2xl p-6 shadow-sm ${post.pinned ? "border-2 border-sunset" : ""}`}>
+                    {post.pinned && (
+                      <div className="flex items-center gap-1.5 text-sunset text-xs font-bold mb-2">
+                        <span className="text-lg">📌</span> PINNED BY MODERATOR
+                      </div>
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-forest/10 flex items-center justify-center text-forest font-bold flex-shrink-0">
+                        {post.author[0]}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-night">{post.author}</span>
+                          <span className="text-xs text-night/40">{post.time}</span>
+                        </div>
+                        <p className="text-night/70 mt-2">{post.text}</p>
+                        <div className="flex items-center gap-4 mt-3 text-sm text-night/40">
+                          <button className="hover:text-forest transition-colors">👍 12</button>
+                          <button className="hover:text-forest transition-colors">Reply</button>
                         </div>
                       </div>
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-night text-sm sm:text-base">{trip.title}</h3>
-                        <p className="text-xs text-night/40 mt-0.5">by {trip.author_name} · {trip.duration_days} days · {trip.difficulty}</p>
-                        <p className="text-sm text-night/60 mt-1.5 line-clamp-2">{trip.description}</p>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {trip.tags.map((tag) => (
-                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-cream text-night/50">#{tag}</span>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Action */}
-                      <Link
-                        href={`/community/${trip.id}`}
-                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-cream text-night/50 hover:bg-forest/10 hover:text-forest transition-colors text-xs font-medium flex-shrink-0"
-                      >
-                        View <ChevronRight className="w-3 h-3" />
-                      </Link>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            )}
+
+            {/* Community Trips Tab */}
+            {activeTab === "trips" && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold text-night flex items-center gap-2">
+                    <Users className="w-5 h-5 text-sunset" /> Community Trips
+                  </h2>
+                  <Link href="/community" className="text-sm text-forest hover:underline">View all →</Link>
+                </div>
+                <div className="space-y-3">
+                  {communityTrips.sort((a, b) => b.vote_count - a.vote_count).map((trip, i) => (
+                    <div key={trip.id} className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-cream-dark">
+                      <div className="flex items-start gap-4">
+                        {/* Rank + Votes */}
+                        <div className="flex flex-col items-center gap-1 min-w-[48px]">
+                          <span className="text-xs font-bold text-night/30">#{i + 1}</span>
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-forest/10 text-forest">
+                            <ThumbsUp className="w-3 h-3" />
+                            <span className="text-xs font-bold">{trip.vote_count}</span>
+                          </div>
+                        </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-night text-sm sm:text-base">{trip.title}</h3>
+                          <p className="text-xs text-night/40 mt-0.5">by {trip.author_name} · {trip.duration_days} days · {trip.difficulty}</p>
+                          <p className="text-sm text-night/60 mt-1.5 line-clamp-2">{trip.description}</p>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {trip.tags.map((tag) => (
+                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-cream text-night/50">#{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Action */}
+                        <Link
+                          href={`/community/${trip.id}`}
+                          className="flex items-center gap-1 px-3 py-2 rounded-lg bg-cream text-night/50 hover:bg-forest/10 hover:text-forest transition-colors text-xs font-medium flex-shrink-0"
+                        >
+                          View <ChevronRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
