@@ -8,23 +8,29 @@ export async function GET(
   const { parkId } = await params;
   const supabase = await createClient();
 
-  const { data: photos, error } = await supabase
+  const { data: rawPhotos, error } = await supabase
     .from("park_photos")
-    .select(`
-      *,
-      profiles:user_id (
-        display_name,
-        avatar_url
-      )
-    `)
+    .select("*")
     .eq("park_id", parkId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !rawPhotos) {
+    return NextResponse.json({ error: error?.message || "Failed to load" }, { status: 500 });
   }
 
-  return NextResponse.json({ photos: photos || [] });
+  // Fetch profiles
+  const userIds = [...new Set(rawPhotos.map((p: any) => p.user_id))];
+  const { data: profiles } = userIds.length > 0
+    ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", userIds)
+    : { data: [] };
+
+  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+  const photos = rawPhotos.map((p: any) => ({
+    ...p,
+    profiles: profileMap.get(p.user_id) || { display_name: "Anonymous", avatar_url: null },
+  }));
+
+  return NextResponse.json({ photos });
 }
 
 export async function POST(
@@ -33,7 +39,6 @@ export async function POST(
 ) {
   const { parkId } = await params;
   
-  // Get token from Authorization header
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
   
@@ -85,18 +90,24 @@ export async function POST(
       photo_url: publicUrl,
       caption: caption || null,
     })
-    .select(`
-      *,
-      profiles:user_id (
-        display_name,
-        avatar_url
-      )
-    `)
+    .select("*")
     .single();
 
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ photo });
+  // Get profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url")
+    .eq("id", user.id)
+    .single();
+
+  return NextResponse.json({ 
+    photo: {
+      ...photo,
+      profiles: profile || { display_name: user.email?.split("@")[0] || "User", avatar_url: null },
+    }
+  });
 }

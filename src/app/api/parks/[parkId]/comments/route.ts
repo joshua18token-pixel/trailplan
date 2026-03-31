@@ -8,24 +8,31 @@ export async function GET(
   const { parkId } = await params;
   const supabase = await createClient();
 
-  const { data: comments, error } = await supabase
+  // Fetch comments
+  const { data: rawComments, error } = await supabase
     .from("park_comments")
-    .select(`
-      *,
-      profiles:user_id (
-        display_name,
-        avatar_url
-      )
-    `)
+    .select("*")
     .eq("park_id", parkId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !rawComments) {
+    return NextResponse.json({ error: error?.message || "Failed to load" }, { status: 500 });
   }
 
-  return NextResponse.json({ comments: comments || [] });
+  // Fetch profiles for all comment authors
+  const userIds = [...new Set(rawComments.map((c: any) => c.user_id))];
+  const { data: profiles } = userIds.length > 0
+    ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", userIds)
+    : { data: [] };
+
+  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+  const comments = rawComments.map((c: any) => ({
+    ...c,
+    profiles: profileMap.get(c.user_id) || { display_name: "Anonymous", avatar_url: null },
+  }));
+
+  return NextResponse.json({ comments });
 }
 
 export async function POST(
@@ -65,18 +72,24 @@ export async function POST(
       content: content.trim(),
       photo_url: photo_url || null,
     })
-    .select(`
-      *,
-      profiles:user_id (
-        display_name,
-        avatar_url
-      )
-    `)
+    .select("*")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ comment });
+  // Get profile for the user
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url")
+    .eq("id", user.id)
+    .single();
+
+  return NextResponse.json({ 
+    comment: {
+      ...comment,
+      profiles: profile || { display_name: user.email?.split("@")[0] || "User", avatar_url: null },
+    }
+  });
 }
