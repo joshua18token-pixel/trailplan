@@ -100,8 +100,8 @@ async function saveParkToSupabase(park: ParkResult): Promise<void> {
 // ============================================================
 const parkActivityProfiles: Record<string, { activities: string[]; description: string; bestSeason: string }> = {
   springs: {
-    activities: ["swimming", "kayaking", "snorkeling", "hiking", "camping", "wildlife watching"],
-    description: "A natural springs park featuring crystal-clear spring-fed waters perfect for swimming, kayaking, and snorkeling.",
+    activities: ["tubing", "swimming", "kayaking", "snorkeling", "hiking", "camping", "wildlife watching"],
+    description: "A natural springs park featuring crystal-clear spring-fed waters perfect for tubing, swimming, kayaking, and snorkeling.",
     bestSeason: "Year-round (springs maintain ~72°F), busiest May-September",
   },
   hammock: {

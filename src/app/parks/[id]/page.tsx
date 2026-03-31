@@ -64,7 +64,7 @@ const activityEmoji: Record<string, string> = {
   camping: "⛺", "wildlife watching": "🦌", "wildlife viewing": "🦌", "horseback riding": "🐴",
   "rock climbing": "🧗", climbing: "🧗", swimming: "🏊", snorkeling: "🤿",
   canoeing: "🛶", boating: "⛵", photography: "📷", rafting: "🚣",
-  "tide pooling": "🦀", canyoneering: "🏔️",
+  "tide pooling": "🦀", canyoneering: "🏔️", tubing: "🛟",
 };
 
 const typeLabels: Record<string, string> = {
@@ -464,7 +464,6 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">{park.fullName}</h1>
             <div className="flex items-center gap-4 mt-2 text-white/70 text-sm">
               <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{park.state}</span>
-              <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{park.bestSeason}</span>
             </div>
           </div>
         </div>
@@ -826,13 +825,7 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
                     <p className="text-sm font-medium text-night">{park.state}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-sunset flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-night/40">Best Season</p>
-                    <p className="text-sm font-medium text-night">{park.bestSeason}</p>
-                  </div>
-                </div>
+
                 <div className="flex items-center gap-3">
                   <TreePine className="w-4 h-4 text-trail flex-shrink-0" />
                   <div>

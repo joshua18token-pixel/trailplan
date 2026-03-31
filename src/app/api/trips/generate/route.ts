@@ -117,6 +117,11 @@ const activityTemplates: Record<string, { name: string; duration: number; diffic
     { name: "Lake Swimming", duration: 1.5, difficulty: "Easy" },
     { name: "Natural Springs Swim", duration: 2, difficulty: "Easy" },
   ],
+  tubing: [
+    { name: "River Tubing", duration: 3, difficulty: "Easy" },
+    { name: "Springs Float Trip", duration: 2.5, difficulty: "Easy" },
+    { name: "Lazy River Tube", duration: 2, difficulty: "Easy" },
+  ],
 };
 
 function generateId(): string {

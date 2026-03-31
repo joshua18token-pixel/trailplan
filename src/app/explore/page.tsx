@@ -148,7 +148,7 @@ export default function ExplorePage() {
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
                         <h3 className="font-bold text-white text-sm">{park.fullName}</h3>
                         <p className="text-white/70 text-xs flex items-center gap-1">
-                          <MapPin className="w-3 h-3" /> {park.state} · 🗓️ Best: {park.bestSeason}
+                          <MapPin className="w-3 h-3" /> {park.state}
                         </p>
                       </div>
                     </div>

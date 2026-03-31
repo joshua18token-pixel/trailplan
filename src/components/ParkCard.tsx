@@ -18,7 +18,7 @@ export default function ParkCard({ park, activityCount }: { park: Park; activity
             <h3 className="text-lg font-bold text-white">{park.name}</h3>
             <div className="flex items-center gap-1 text-white/80 text-sm mt-0.5">
               <MapPin className="w-3.5 h-3.5" />
-              {park.region} · 🗓️ Best: {park.bestSeason}
+              {park.region}
             </div>
           </div>
         </div>
