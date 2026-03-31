@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -43,6 +44,7 @@ export async function DELETE(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
