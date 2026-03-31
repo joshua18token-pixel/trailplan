@@ -6,10 +6,19 @@ export async function POST(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
-  const supabase = await createClient();
+  
+  // Get token from Authorization header
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+  if (!user || authError) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -44,10 +53,19 @@ export async function DELETE(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
-  const supabase = await createClient();
+  
+  // Get token from Authorization header
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+  if (!user || authError) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

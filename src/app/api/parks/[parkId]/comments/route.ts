@@ -33,12 +33,21 @@ export async function POST(
   { params }: { params: Promise<{ parkId: string }> }
 ) {
   const { parkId } = await params;
-  const supabase = await createClient();
+  
+  // Get token from Authorization header
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized", details: "No token provided" }, { status: 401 });
+  }
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
   if (!user || authError) {
     console.error("Auth error:", authError);
-    return NextResponse.json({ error: "Unauthorized", details: authError?.message }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", details: authError?.message || "Invalid token" }, { status: 401 });
   }
 
   const body = await request.json();

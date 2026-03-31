@@ -194,6 +194,16 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     
     setPosting(true);
     try {
+      // Import supabase client
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert("Please sign in again");
+        setPosting(false);
+        return;
+      }
+
       let photoUrl = null;
       
       // Upload photo if attached
@@ -202,6 +212,9 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
         formData.append("file", commentPhoto);
         const uploadRes = await fetch(`/api/parks/${id}/photos`, {
           method: "POST",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+          },
           body: formData,
         });
         const uploadData = await uploadRes.json();
@@ -211,7 +224,10 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
       // Post comment
       const res = await fetch(`/api/parks/${id}/comments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ content: newComment, photo_url: photoUrl }),
       });
 
@@ -220,8 +236,14 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
         setCommentPhoto(null);
         loadComments();
         if (photoUrl) loadPhotos();
+      } else {
+        const error = await res.json();
+        console.error("Post failed:", error);
+        alert("Failed to post: " + (error.details || error.error));
       }
-    } catch {}
+    } catch (err) {
+      console.error("Error posting:", err);
+    }
     setPosting(false);
   }
 
@@ -230,12 +252,24 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     
     setUploadingPhoto(true);
     try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert("Please sign in again");
+        setUploadingPhoto(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       if (caption) formData.append("caption", caption);
 
       const res = await fetch(`/api/parks/${id}/photos`, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
         body: formData,
       });
 
@@ -250,8 +284,16 @@ export default function ParkDetailPage({ params }: { params: Promise<{ id: strin
     if (!user) return;
     
     try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) return;
+
       await fetch(`/api/parks/comments/${commentId}/like`, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
       });
       loadComments();
     } catch {}
