@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { supabase } from "@/lib/supabase";
+import { createAuthClient } from "@/lib/supabase-auth";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
-  
-  // Get token from Authorization header
+
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
-  
+
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  
   if (!user || authError) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const authClient = createAuthClient(token);
+
   // Check if already liked
-  const { data: existing } = await supabase
+  const { data: existing } = await authClient
     .from("park_comment_likes")
     .select("id")
     .eq("comment_id", commentId)
@@ -34,7 +34,7 @@ export async function POST(
     return NextResponse.json({ error: "Already liked" }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { error } = await authClient
     .from("park_comment_likes")
     .insert({
       comment_id: commentId,
@@ -53,23 +53,22 @@ export async function DELETE(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   const { commentId } = await params;
-  
-  // Get token from Authorization header
+
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
-  
+
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  
   if (!user || authError) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { error } = await supabase
+  const authClient = createAuthClient(token);
+
+  const { error } = await authClient
     .from("park_comment_likes")
     .delete()
     .eq("comment_id", commentId)

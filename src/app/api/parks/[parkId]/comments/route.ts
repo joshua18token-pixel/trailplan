@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { supabase } from "@/lib/supabase";
+import { createAuthClient } from "@/lib/supabase-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ parkId: string }> }
 ) {
   const { parkId } = await params;
-  const supabase = await createClient();
 
-  // Fetch comments
+  // Fetch comments (anon client is fine for SELECT — RLS allows all reads)
   const { data: rawComments, error } = await supabase
     .from("park_comments")
     .select("*")
@@ -40,20 +40,18 @@ export async function POST(
   { params }: { params: Promise<{ parkId: string }> }
 ) {
   const { parkId } = await params;
-  
+
   // Get token from Authorization header
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
-  
+
   if (!token) {
     return NextResponse.json({ error: "Unauthorized", details: "No token provided" }, { status: 401 });
   }
 
-  const supabase = await createClient();
+  // Verify user
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  
   if (!user || authError) {
-    console.error("Auth error:", authError);
     return NextResponse.json({ error: "Unauthorized", details: authError?.message || "Invalid token" }, { status: 401 });
   }
 
@@ -64,7 +62,10 @@ export async function POST(
     return NextResponse.json({ error: "Content is required" }, { status: 400 });
   }
 
-  const { data: comment, error } = await supabase
+  // Use authenticated client so auth.uid() works for RLS
+  const authClient = createAuthClient(token);
+
+  const { data: comment, error } = await authClient
     .from("park_comments")
     .insert({
       park_id: parkId,
@@ -79,14 +80,14 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Get profile for the user
+  // Get profile
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, avatar_url")
     .eq("id", user.id)
     .single();
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     comment: {
       ...comment,
       profiles: profile || { display_name: user.email?.split("@")[0] || "User", avatar_url: null },

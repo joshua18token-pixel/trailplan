@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { supabase } from "@/lib/supabase";
+import { createAuthClient } from "@/lib/supabase-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ parkId: string }> }
 ) {
   const { parkId } = await params;
-  const supabase = await createClient();
 
   const { data: rawPhotos, error } = await supabase
     .from("park_photos")
@@ -18,7 +18,6 @@ export async function GET(
     return NextResponse.json({ error: error?.message || "Failed to load" }, { status: 500 });
   }
 
-  // Fetch profiles
   const userIds = [...new Set(rawPhotos.map((p: any) => p.user_id))];
   const { data: profiles } = userIds.length > 0
     ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", userIds)
@@ -38,20 +37,21 @@ export async function POST(
   { params }: { params: Promise<{ parkId: string }> }
 ) {
   const { parkId } = await params;
-  
+
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
-  
+
   if (!token) {
     return NextResponse.json({ error: "Unauthorized", details: "No token provided" }, { status: 401 });
   }
 
-  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  
   if (!user || authError) {
     return NextResponse.json({ error: "Unauthorized", details: authError?.message || "Invalid token" }, { status: 401 });
   }
+
+  // Use authenticated client for storage + DB writes
+  const authClient = createAuthClient(token);
 
   const formData = await request.formData();
   const file = formData.get("file") as File;
@@ -61,11 +61,10 @@ export async function POST(
     return NextResponse.json({ error: "File is required" }, { status: 400 });
   }
 
-  // Upload to Supabase Storage
   const fileExt = file.name.split(".").pop();
   const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-  const { data: uploadData, error: uploadError } = await supabase.storage
+  const { error: uploadError } = await authClient.storage
     .from("park-photos")
     .upload(fileName, file, {
       contentType: file.type,
@@ -76,13 +75,11 @@ export async function POST(
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
+  const { data: { publicUrl } } = authClient.storage
     .from("park-photos")
     .getPublicUrl(fileName);
 
-  // Save to database
-  const { data: photo, error: dbError } = await supabase
+  const { data: photo, error: dbError } = await authClient
     .from("park_photos")
     .insert({
       park_id: parkId,
@@ -97,14 +94,13 @@ export async function POST(
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
-  // Get profile
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, avatar_url")
     .eq("id", user.id)
     .single();
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     photo: {
       ...photo,
       profiles: profile || { display_name: user.email?.split("@")[0] || "User", avatar_url: null },
