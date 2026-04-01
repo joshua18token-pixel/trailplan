@@ -5,8 +5,8 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "TrailPlan — Plan Your Perfect Outdoor Adventure",
-  description: "Discover trails, build itineraries, and plan unforgettable trips to America's national parks.",
+  title: "ParkPlan — Plan Your Perfect Park Adventure",
+  description: "Discover parks, build itineraries, and plan unforgettable trips to America's national and state parks.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

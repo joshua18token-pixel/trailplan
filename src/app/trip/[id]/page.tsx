@@ -950,7 +950,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
     if (!mockItinerary) {
       // Try localStorage first
       try {
-        const stored = localStorage.getItem(`trailplan-trip-${id}`);
+        const stored = localStorage.getItem(`parkplan-trip-${id}`);
         if (stored) {
           const parsed = JSON.parse(stored);
           setGeneratedTrip(parsed);
@@ -1226,7 +1226,7 @@ export default function ItineraryPage({ params }: { params: Promise<{ id: string
                       📋 Copy Link
                     </button>
                     <a
-                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out my trip on TrailPlan!")}&url=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out my trip on ParkPlan!")}&url=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
                       target="_blank" rel="noopener noreferrer"
                       onClick={() => setShowShareMenu(false)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-night/70 hover:bg-cream transition-colors"

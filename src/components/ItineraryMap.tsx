@@ -179,12 +179,12 @@ export default function ItineraryMap({ days, center }: ItineraryMapProps) {
             <strong>Day ${pt.day}</strong><br/>
             ${pt.label}
           </div>`,
-          { closeButton: false, className: "trailplan-popup" }
+          { closeButton: false, className: "parkplan-popup" }
         );
         marker.bindTooltip(`D${pt.day}: ${pt.label}`, {
           direction: "top",
           offset: [0, -10],
-          className: "trailplan-tooltip",
+          className: "parkplan-tooltip",
         });
       }
 

@@ -217,7 +217,7 @@ async function discoverPark(query: string): Promise<ParkResult | null> {
     const searchQuery = qLower.includes("park") ? query : `${query} park`;
     const geoRes = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=3&addressdetails=1`,
-      { headers: { "User-Agent": "TrailPlan/1.0 (contact@trailplan.app)" } }
+      { headers: { "User-Agent": "ParkPlan/1.0 (contact@parkplan.io)" } }
     );
     if (geoRes.ok) {
       const geoData = await geoRes.json();
@@ -264,7 +264,7 @@ async function discoverPark(query: string): Promise<ParkResult | null> {
                 : park.designation?.toLowerCase().includes("forest") ? "national_forest"
                 : "recreation_area",
               state: park.states || geoResult?.state || "Unknown",
-              description: park.description || `${query} — discovered by TrailPlan AI.`,
+              description: park.description || `${query} — discovered by ParkPlan AI.`,
               coordinates: geoResult || {
                 lat: parseFloat(park.latitude) || 0,
                 lng: parseFloat(park.longitude) || 0,
@@ -353,7 +353,7 @@ export async function GET(request: NextRequest) {
       results: [discovered],
       source: "ai_discovery",
       total: 1,
-      message: `🤖 AI discovered "${discovered.fullName}" and added it to TrailPlan!`,
+      message: `🤖 AI discovered "${discovered.fullName}" and added it to ParkPlan!`,
     });
   }
 

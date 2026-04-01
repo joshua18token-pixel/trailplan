@@ -140,7 +140,7 @@ export default function HomePage() {
             Ready for your next adventure?
           </h2>
           <p className="mt-4 text-lg text-white/70 max-w-xl mx-auto">
-            Join thousands of outdoor enthusiasts who plan smarter and explore further with TrailPlan.
+            Join thousands of outdoor enthusiasts who plan smarter and explore further with ParkPlan.
           </p>
           <Link
             href="/trip/new"
@@ -155,7 +155,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="py-10 bg-night text-white/50 text-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2025 TrailPlan. All rights reserved.</p>
+          <p>© 2026 ParkPlan. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-white transition-colors">About</a>
             <a href="#" className="hover:text-white transition-colors">Privacy</a>

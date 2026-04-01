@@ -228,7 +228,7 @@ export default function ParkSearch({ onSelect, placeholder, className, showResul
           {/* Footer */}
           <div className="px-4 py-2 bg-gray-50 text-center">
             <p className="text-[10px] text-night/30">
-              Powered by TrailPlan AI · {source === "database" ? "From our database" : source === "ai_discovery" ? "Discovered by AI" : ""}
+              Powered by ParkPlan AI · {source === "database" ? "From our database" : source === "ai_discovery" ? "Discovered by AI" : ""}
             </p>
           </div>
         </div>

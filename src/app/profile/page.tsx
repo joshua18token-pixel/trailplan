@@ -178,7 +178,7 @@ export default function ProfilePage() {
             <Mountain className="w-8 h-8 text-forest" />
           </div>
           <h1 className="text-2xl font-bold text-night">
-            {mode === "signup" ? "Join TrailPlan" : "Welcome Back"}
+            {mode === "signup" ? "Join ParkPlan" : "Welcome Back"}
           </h1>
           <p className="text-sm text-night/50 mt-1">
             {mode === "signup" ? "Start planning your perfect outdoor adventures" : "Sign in to access your trips"}

@@ -23,7 +23,7 @@ export default function PermitsPage({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     if (!mockItinerary) {
       try {
-        const stored = localStorage.getItem(`trailplan-trip-${id}`);
+        const stored = localStorage.getItem(`parkplan-trip-${id}`);
         if (stored) setGeneratedTrip(JSON.parse(stored));
       } catch {}
     }

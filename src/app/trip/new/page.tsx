@@ -191,7 +191,7 @@ function TripWizardContent() {
           const fullTripRes = await fetch(`/api/trips/generate?id=${data.slug}`);
           const fullTrip = await fullTripRes.json();
           if (!fullTrip.error) {
-            localStorage.setItem(`trailplan-trip-${data.slug}`, JSON.stringify(fullTrip));
+            localStorage.setItem(`parkplan-trip-${data.slug}`, JSON.stringify(fullTrip));
           }
         } catch {}
         router.push(`/trip/${data.slug}`);

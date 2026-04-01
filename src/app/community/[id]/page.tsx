@@ -91,7 +91,7 @@ const communityTrips: Record<string, any> = {
 // Fallback for trips not in the detailed data
 const fallbackTrip = {
   title: "Community Trip",
-  author: "TrailPlan User",
+  author: "ParkPlan User",
   authorAvatar: "🏞️",
   parks: [],
   duration: 3,
@@ -132,7 +132,7 @@ export default function CommunityTripDetail({ params }: { params: Promise<{ id: 
       fromTemplate: trip.title,
     };
     try {
-      localStorage.setItem(`trailplan-trip-${templateTrip.slug}`, JSON.stringify(templateTrip));
+      localStorage.setItem(`parkplan-trip-${templateTrip.slug}`, JSON.stringify(templateTrip));
     } catch {}
     setCopied(true);
     setTimeout(() => router.push("/my-trips"), 1500);

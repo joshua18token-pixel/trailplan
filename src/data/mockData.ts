@@ -1,5 +1,5 @@
 // ============================================================
-// TrailPlan Mock Data — Comprehensive prototype dataset
+// ParkPlan Mock Data — Comprehensive prototype dataset
 // ============================================================
 
 // --- Type Definitions ---

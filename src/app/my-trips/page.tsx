@@ -87,9 +87,9 @@ export default function MyTripsPage() {
 
       // Also load from localStorage (for trips not yet associated with account)
       try {
-        const keys = Object.keys(localStorage).filter((k) => k.startsWith("trailplan-trip-"));
+        const keys = Object.keys(localStorage).filter((k) => k.startsWith("parkplan-trip-"));
         for (const key of keys) {
-          const slug = key.replace("trailplan-trip-", "");
+          const slug = key.replace("parkplan-trip-", "");
           // Skip if already loaded from Supabase
           if (allTrips.find((t) => t.slug === slug || t.id === slug)) continue;
           const data = JSON.parse(localStorage.getItem(key) || "{}");
@@ -131,8 +131,8 @@ export default function MyTripsPage() {
     // Delete from localStorage
     const trip = trips.find((t) => t.id === tripId);
     if (trip) {
-      localStorage.removeItem(`trailplan-trip-${trip.slug}`);
-      localStorage.removeItem(`trailplan-trip-${trip.id}`);
+      localStorage.removeItem(`parkplan-trip-${trip.slug}`);
+      localStorage.removeItem(`parkplan-trip-${trip.id}`);
     }
 
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
