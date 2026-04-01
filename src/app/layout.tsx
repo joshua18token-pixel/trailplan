@@ -7,6 +7,24 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "ParkPlan — Plan Your Perfect Park Adventure",
   description: "Discover parks, build itineraries, and plan unforgettable trips to America's national and state parks.",
+  metadataBase: new URL("https://parkplan.io"),
+  openGraph: {
+    title: "ParkPlan — Plan Your Perfect Park Adventure",
+    description: "Discover parks, build itineraries, and plan unforgettable trips to America's national and state parks.",
+    url: "https://parkplan.io",
+    siteName: "ParkPlan",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ParkPlan — Plan Your Perfect Park Adventure",
+    description: "Discover parks, build itineraries, and plan unforgettable trips to America's national and state parks.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
