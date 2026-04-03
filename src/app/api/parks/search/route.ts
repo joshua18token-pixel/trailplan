@@ -243,7 +243,7 @@ async function discoverPark(query: string): Promise<ParkResult | null> {
   if (isLikelyNational) {
     try {
       const npsRes = await fetch(
-        `https://developer.nps.gov/api/v1/parks?q=${encodeURIComponent(query)}&limit=3&api_key=DEMO_KEY`
+        `https://developer.nps.gov/api/v1/parks?q=${encodeURIComponent(query)}&limit=3&api_key=${process.env.NPS_API_KEY || "DEMO_KEY"}`
       );
       if (npsRes.ok) {
         const npsData = await npsRes.json();
