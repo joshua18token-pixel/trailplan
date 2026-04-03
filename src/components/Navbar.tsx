@@ -19,7 +19,7 @@ export default function Navbar() {
               <Mountain className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-night">
-              Trail<span className="text-forest">Plan</span>
+              Park<span className="text-forest">Plan</span><span className="text-night/40 text-sm font-medium">.io</span>
             </span>
           </Link>
 
