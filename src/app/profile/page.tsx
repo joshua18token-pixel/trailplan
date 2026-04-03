@@ -22,6 +22,44 @@ export default function ProfilePage() {
   // Editing profile
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState("");
+  const [upgrading, setUpgrading] = useState(false);
+
+  async function handleUpgrade() {
+    if (upgrading) return;
+    setUpgrading(true);
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+    }
+    setUpgrading(false);
+  }
+
+  async function handleManageSubscription() {
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error("Portal error:", err);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,9 +153,20 @@ export default function ProfilePage() {
                   {profile.plan === "pro" ? "Unlimited trips & features" : `${profile.trip_count}/5 free trips used`}
                 </span>
               </div>
-              {profile.plan !== "pro" && (
-                <button className="text-xs px-3 py-1.5 rounded-lg bg-sunset text-white font-medium hover:bg-sunset-light transition-colors">
-                  Upgrade to Pro
+              {profile.plan === "pro" ? (
+                <button 
+                  onClick={handleManageSubscription}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-night/10 text-night font-medium hover:bg-night/20 transition-colors"
+                >
+                  Manage Subscription
+                </button>
+              ) : (
+                <button 
+                  onClick={handleUpgrade}
+                  disabled={upgrading}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-sunset text-white font-medium hover:bg-sunset-light transition-colors disabled:opacity-50"
+                >
+                  {upgrading ? "Loading..." : "Upgrade to Pro — $20/yr"}
                 </button>
               )}
             </div>
